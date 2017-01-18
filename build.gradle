@@ -189,6 +189,7 @@ configure(allprojects) { project ->
 		resolutionStrategy {
 			cacheChangingModulesFor 0, 'seconds'
 		}
+		applyMavenExclusions = false
 	}
 
 	dependencies {
