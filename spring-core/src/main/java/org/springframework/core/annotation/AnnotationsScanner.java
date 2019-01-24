@@ -80,6 +80,8 @@ class AnnotationsScanner implements Iterable<DeclaredAnnotations> {
 
 	static void clearCache() {
 		cache.clear();
+		TypeHierarchy.superclassesCache.clear();
+		TypeHierarchy.superclassesAndInterfacesCache.clear();
 	}
 
 	/**
@@ -103,6 +105,7 @@ class AnnotationsScanner implements Iterable<DeclaredAnnotations> {
 		public final Collection<DeclaredAnnotations> get(SearchStrategy searchStrategy) {
 			Collection<DeclaredAnnotations> result = this.results.get(searchStrategy);
 			if (result == null) {
+				System.out.println("compute on " + this.source);
 				result = compute(searchStrategy);
 				this.results.put(searchStrategy, result);
 			}
@@ -158,16 +161,18 @@ class AnnotationsScanner implements Iterable<DeclaredAnnotations> {
 		}
 
 		private Collection<DeclaredAnnotations> computeInheritedAnnotations() {
+			List<DeclaredAnnotations> result = new ArrayList<>();
 			Set<Class<?>> present = getAnnotationTypes(getSource().getAnnotations());
-			return TypeHierarchy.superclasses(getSource()).stream().map(type -> {
+			for (Class<?> type : TypeHierarchy.superclasses(getSource())) {
 				Set<Annotation> annotations = new LinkedHashSet<>(present.size());
 				for (Annotation annotation : type.getDeclaredAnnotations()) {
 					if(present.remove(annotation.annotationType())) {
 						annotations.add(annotation);
 					}
 				}
-				return DeclaredAnnotations.from(type, annotations);
-			}).collect(Collectors.toList());
+				result.add(DeclaredAnnotations.from(type, annotations));
+			}
+			return result;
 		}
 
 		private Set<Class<?>> getAnnotationTypes(Annotation[] annotations) {
@@ -180,8 +185,11 @@ class AnnotationsScanner implements Iterable<DeclaredAnnotations> {
 
 		private Collection<DeclaredAnnotations> computeWithHierarchy(
 				Function<Class<?>, TypeHierarchy> hierarchyFactory) {
-			return hierarchyFactory.apply(getSource()).stream().map(
-					this::getDeclaredAnnotations).collect(Collectors.toList());
+			List<DeclaredAnnotations> result = new ArrayList<>();
+			for (Class<?> type : hierarchyFactory.apply(getSource())) {
+				result.add(getDeclaredAnnotations(type));
+			}
+			return result;
 		}
 
 		private DeclaredAnnotations getDeclaredAnnotations(Class<?> type) {
@@ -194,6 +202,8 @@ class AnnotationsScanner implements Iterable<DeclaredAnnotations> {
 	 * Cacheable results for a single method element.
 	 */
 	private static class MethodResults extends Results<Method> {
+
+		private static final Method[] NO_METHODS = {};
 
 		MethodResults(Method source) {
 			super(source);
@@ -221,24 +231,29 @@ class AnnotationsScanner implements Iterable<DeclaredAnnotations> {
 
 		private Collection<DeclaredAnnotations> computeWithHierarchy(
 				Function<Class<?>, TypeHierarchy> hierarchyFactory) {
-			Class<?> declaringClass = getSource().getDeclaringClass();
-			TypeHierarchy hierarchy = hierarchyFactory.apply(declaringClass).excluding(
-					declaringClass);
+			if (Modifier.isPrivate(getSource().getModifiers())) {
+				return get(SearchStrategy.DIRECT);
+			}
 			List<DeclaredAnnotations> result = new ArrayList<>();
+			Class<?> declaringClass = getSource().getDeclaringClass();
 			result.add(getAnnotations(getSource()));
-			hierarchy.stream().flatMap(this::getOverrideCandidates).filter(
-					this::isOverride).map(this::getAnnotations).forEach(result::add);
+			for (Class<?> type : hierarchyFactory.apply(declaringClass)) {
+				if (type != declaringClass) {
+					for (Method method : getMethods(type)) {
+						if (isOverrideCandidate(type, method) && isOverride(method)) {
+							result.add(getAnnotations(method));
+						}
+					}
+				}
+			}
 			return result;
 		}
 
-		private Stream<Method> getOverrideCandidates(Class<?> type) {
+		private Method[] getMethods(Class<?> type) {
 			if (type.isInterface() && ClassUtils.isJavaLanguageInterface(type)) {
-				return Stream.empty();
+				return NO_METHODS;
 			}
-			Method[] methods = (type.isInterface() ? type.getMethods()
-					: type.getDeclaredMethods());
-			return Arrays.stream(methods).filter(
-					method -> isOverrideCandidate(type, method));
+			return (type.isInterface() ? type.getMethods() : type.getDeclaredMethods());
 		}
 
 		private boolean isOverrideCandidate(Class<?> type, Method method) {
@@ -312,7 +327,11 @@ class AnnotationsScanner implements Iterable<DeclaredAnnotations> {
 	 * Provides ordred access to the superclass and interface hierarchy of a
 	 * given class.
 	 */
-	private static final class TypeHierarchy {
+	private static final class TypeHierarchy implements Iterable<Class<?>> {
+
+		private static Map<Class<?>, TypeHierarchy> superclassesCache = new ConcurrentReferenceHashMap<>();
+
+		private static Map<Class<?>, TypeHierarchy> superclassesAndInterfacesCache = new ConcurrentReferenceHashMap<>();
 
 		private final Set<Class<?>> hierarchy = new LinkedHashSet<>();
 
@@ -333,21 +352,19 @@ class AnnotationsScanner implements Iterable<DeclaredAnnotations> {
 			}
 		}
 
-		public TypeHierarchy excluding(Class<?> type) {
-			this.hierarchy.remove(type);
-			return this;
-		}
-
-		public Stream<Class<?>> stream() {
-			return this.hierarchy.stream();
+		@Override
+		public Iterator<Class<?>> iterator() {
+			return this.hierarchy.iterator();
 		}
 
 		public static TypeHierarchy superclasses(Class<?> type) {
-			return new TypeHierarchy(type, false);
+			return superclassesCache.computeIfAbsent(type,
+					key -> new TypeHierarchy(type, false));
 		}
 
 		public static TypeHierarchy superclassesAndInterfaces(Class<?> type) {
-			return new TypeHierarchy(type, true);
+			return superclassesAndInterfacesCache.computeIfAbsent(type,
+					key -> new TypeHierarchy(type, true));
 		}
 
 	}

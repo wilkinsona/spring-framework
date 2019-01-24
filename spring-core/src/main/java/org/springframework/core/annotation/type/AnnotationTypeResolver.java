@@ -68,11 +68,13 @@ final class AnnotationTypeResolver {
 	@Nullable
 	AnnotationType resolve(String className, boolean useCache) {
 		try {
+			System.err.println("resolve " + className);
 			String resourcePath = getResourcePath(className);
 			Resource resource = this.resourceLoader.getResource(resourcePath);
 			return resolve(resource, useCache);
 		}
 		catch (Exception ex) {
+			ex.printStackTrace();
 			throw new UnresolvableAnnotationTypeException(className, ex);
 		}
 	}
