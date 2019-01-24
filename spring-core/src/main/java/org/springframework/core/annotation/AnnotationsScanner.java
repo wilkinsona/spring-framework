@@ -80,6 +80,7 @@ class AnnotationsScanner implements Iterable<DeclaredAnnotations> {
 		cache.clear();
 		TypeHierarchy.superclassesCache.clear();
 		TypeHierarchy.superclassesAndInterfacesCache.clear();
+		MethodResults.methodsCache.clear();
 	}
 
 	/**
@@ -202,6 +203,8 @@ class AnnotationsScanner implements Iterable<DeclaredAnnotations> {
 
 		private static final Method[] NO_METHODS = {};
 
+		private static final Map<Class<?>, Method[]> methodsCache = new ConcurrentReferenceHashMap<>(256);
+
 		MethodResults(Method source) {
 			super(source);
 		}
@@ -247,10 +250,18 @@ class AnnotationsScanner implements Iterable<DeclaredAnnotations> {
 		}
 
 		private Method[] getMethods(Class<?> type) {
+			if (type == Object.class) {
+				return NO_METHODS;
+			}
 			if (type.isInterface() && ClassUtils.isJavaLanguageInterface(type)) {
 				return NO_METHODS;
 			}
-			return (type.isInterface() ? type.getMethods() : type.getDeclaredMethods());
+			Method[] result = methodsCache.get(type);
+			if (result == null) {
+				result = type.isInterface() ? type.getMethods() : type.getDeclaredMethods();
+				methodsCache.put(type, result.length == 0 ? NO_METHODS : result);
+			}
+			return result;
 		}
 
 		private boolean isOverrideCandidate(Class<?> type, Method method) {
