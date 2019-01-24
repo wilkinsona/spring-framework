@@ -32,8 +32,6 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Function;
-import java.util.stream.Collectors;
-import java.util.stream.Stream;
 
 import org.apache.commons.logging.Log;
 
@@ -105,7 +103,6 @@ class AnnotationsScanner implements Iterable<DeclaredAnnotations> {
 		public final Collection<DeclaredAnnotations> get(SearchStrategy searchStrategy) {
 			Collection<DeclaredAnnotations> result = this.results.get(searchStrategy);
 			if (result == null) {
-				System.out.println("compute on " + this.source);
 				result = compute(searchStrategy);
 				this.results.put(searchStrategy, result);
 			}
