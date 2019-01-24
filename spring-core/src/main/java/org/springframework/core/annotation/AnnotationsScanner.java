@@ -203,6 +203,8 @@ class AnnotationsScanner implements Iterable<DeclaredAnnotations> {
 
 		private static final Method[] NO_METHODS = {};
 
+		private static final Annotation[] NO_ANNOTATIONS = {};
+
 		private static final Map<Class<?>, Method[]> methodsCache = new ConcurrentReferenceHashMap<>(256);
 
 		MethodResults(Method source) {
@@ -231,16 +233,17 @@ class AnnotationsScanner implements Iterable<DeclaredAnnotations> {
 
 		private Collection<DeclaredAnnotations> computeWithHierarchy(
 				Function<Class<?>, TypeHierarchy> hierarchyFactory) {
-			if (Modifier.isPrivate(getSource().getModifiers())) {
+			Method source = getSource();
+			if (Modifier.isPrivate(source.getModifiers())) {
 				return get(SearchStrategy.DIRECT);
 			}
 			List<DeclaredAnnotations> result = new ArrayList<>();
-			Class<?> declaringClass = getSource().getDeclaringClass();
-			result.add(getAnnotations(getSource()));
+			Class<?> declaringClass = source.getDeclaringClass();
+			result.add(getAnnotations(source));
 			for (Class<?> type : hierarchyFactory.apply(declaringClass)) {
 				if (type != declaringClass) {
 					for (Method method : getMethods(type)) {
-						if (isOverrideCandidate(type, method) && isOverride(method)) {
+						if (isOverride(type, method)) {
 							result.add(getAnnotations(method));
 						}
 					}
@@ -248,6 +251,39 @@ class AnnotationsScanner implements Iterable<DeclaredAnnotations> {
 			}
 			return result;
 		}
+
+		private DeclaredAnnotations getAnnotations(Method method) {
+			Method bridgedMethod = BridgeMethodResolver.findBridgedMethod(method);
+			Annotation[] methodAnnotations = method.getDeclaredAnnotations();
+			Annotation[] bridgedMethodAnnotations = bridgedMethod != method
+					? bridgedMethod.getDeclaredAnnotations()
+					: NO_ANNOTATIONS;
+			if(hasAnnotations(methodAnnotations) || hasAnnotations(bridgedMethodAnnotations)) {
+				Set<Annotation> annotations = new LinkedHashSet<>(methodAnnotations.length + bridgedMethodAnnotations.length);
+				for (Annotation annotation : methodAnnotations) {
+					annotations.add(annotation);
+				}
+				for (Annotation annotation : bridgedMethodAnnotations) {
+					annotations.add(annotation);
+				}
+				return DeclaredAnnotations.from(method, annotations);
+			}
+			return DeclaredAnnotations.NONE;
+		}
+
+		private boolean hasAnnotations(Annotation[] annotations) {
+			for (Annotation annotation : annotations) {
+				if(!isIgnorable(annotation.annotationType())) {
+					return true;
+				}
+			}
+			return false;
+		}
+
+		private boolean isIgnorable(Class<?> type) {
+			return (type == Nullable.class || type == Deprecated.class);
+		}
+
 
 		private Method[] getMethods(Class<?> type) {
 			if (type == Object.class) {
@@ -264,51 +300,35 @@ class AnnotationsScanner implements Iterable<DeclaredAnnotations> {
 			return result;
 		}
 
-		private boolean isOverrideCandidate(Class<?> type, Method method) {
+		private boolean isOverride(Class<?> type, Method method) {
 			if (!type.isInterface() && Modifier.isPrivate(method.getModifiers())) {
 				return false;
 			}
-			Annotation[] annotations = method.getAnnotations();
-			for (Annotation annotation : annotations) {
-				if (!isIgnorable(annotation.annotationType())) {
-					return true;
-				}
-			}
-			return false;
-		}
-
-		private boolean isIgnorable(Class<?> type) {
-			return (type == Nullable.class || type == Deprecated.class);
-		}
-
-		private boolean isOverride(Method candidate) {
-			if (!candidate.getName().equals(getSource().getName())) {
+			if (!method.getName().equals(getSource().getName())) {
 				return false;
 			}
-			if (candidate.getParameterCount() != getSource().getParameterCount()) {
+			return hasSameParameterTypes(method);
+		}
+
+		private boolean hasSameParameterTypes(Method method) {
+			if (method.getParameterCount() != getSource().getParameterCount()) {
 				return false;
 			}
 			Class<?>[] types = getSource().getParameterTypes();
-			if (Arrays.equals(candidate.getParameterTypes(), types)) {
+			if (Arrays.equals(method.getParameterTypes(), types)) {
 				return true;
 			}
 			Class<?> implementationClass = getSource().getDeclaringClass();
 			for (int i = 0; i < types.length; i++) {
-				if (types[i] != ResolvableType.forMethodParameter(candidate, i,
-						implementationClass).resolve()) {
+				Class<?> resolved = ResolvableType.forMethodParameter(method, i,
+						implementationClass).resolve();
+				if (types[i] != resolved) {
 					return false;
 				}
 			}
 			return true;
 		}
 
-		private DeclaredAnnotations getAnnotations(Method method) {
-			Set<Annotation> annotations = new LinkedHashSet<>(
-					Arrays.asList(method.getDeclaredAnnotations()));
-			Method bridgedMethod = BridgeMethodResolver.findBridgedMethod(method);
-			annotations.addAll(Arrays.asList(bridgedMethod.getDeclaredAnnotations()));
-			return DeclaredAnnotations.from(method, annotations);
-		}
 	}
 
 	/**
