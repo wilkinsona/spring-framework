@@ -50,10 +50,9 @@ final class AnnotationTypeResolver {
 	private static final Map<ClassLoader, AnnotationTypeResolver> resolverCache = new ConcurrentReferenceHashMap<>(
 			4);
 
-	private static final Map<Resource, Object> resourceCache = new ConcurrentReferenceHashMap<>(
-			4);
-
 	private final ResourceLoader resourceLoader;
+
+	private final Map<String, Object> cache = new ConcurrentReferenceHashMap<>();
 
 	AnnotationTypeResolver(ResourceLoader resourceLoader) {
 		this.resourceLoader = resourceLoader;
@@ -67,36 +66,34 @@ final class AnnotationTypeResolver {
 
 	@Nullable
 	AnnotationType resolve(String className, boolean useCache) {
-		try {
-			System.err.println("resolve " + className);
-			String resourcePath = getResourcePath(className);
-			Resource resource = this.resourceLoader.getResource(resourcePath);
-			return resolve(resource, useCache);
-		}
-		catch (Exception ex) {
-			ex.printStackTrace();
-			throw new UnresolvableAnnotationTypeException(className, ex);
-		}
-	}
-
-	private AnnotationType resolve(Resource resource, boolean useCache) throws Exception {
 		if (!useCache) {
-			return load(resource);
+			return load(className);
 		}
-		Object result = resourceCache.get(resource);
+		Object result = this.cache.get(className);
 		if (result == null) {
 			try {
-				result = load(resource);
+				result = load(className);
 			}
-			catch (Exception ex) {
+			catch (RuntimeException ex) {
 				result = ex;
 			}
-			resourceCache.put(resource, result);
+			this.cache.put(className, result);
 		}
-		if (result instanceof Exception) {
-			throw (Exception) result;
+		if (result instanceof RuntimeException) {
+			throw (RuntimeException) result;
 		}
 		return (AnnotationType) result;
+	}
+
+	private AnnotationType load(String className) {
+		String resourcePath = getResourcePath(className);
+		Resource resource = this.resourceLoader.getResource(resourcePath);
+		try {
+			return load(resource);
+		}
+		catch (Exception ex) {
+			throw new UnresolvableAnnotationTypeException(className, ex);
+		}
 	}
 
 	private AnnotationType load(Resource resource) throws Exception {
@@ -147,7 +144,6 @@ final class AnnotationTypeResolver {
 
 	static void clearCache() {
 		resolverCache.clear();
-		resourceCache.clear();
 	}
 
 	/**
