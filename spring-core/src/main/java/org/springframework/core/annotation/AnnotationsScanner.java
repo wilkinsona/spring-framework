@@ -258,32 +258,20 @@ class AnnotationsScanner implements Iterable<DeclaredAnnotations> {
 			Annotation[] bridgedMethodAnnotations = bridgedMethod != method
 					? bridgedMethod.getDeclaredAnnotations()
 					: NO_ANNOTATIONS;
-			if(hasAnnotations(methodAnnotations) || hasAnnotations(bridgedMethodAnnotations)) {
-				Set<Annotation> annotations = new LinkedHashSet<>(methodAnnotations.length + bridgedMethodAnnotations.length);
-				for (Annotation annotation : methodAnnotations) {
-					annotations.add(annotation);
-				}
-				for (Annotation annotation : bridgedMethodAnnotations) {
-					annotations.add(annotation);
-				}
-				return DeclaredAnnotations.from(method, annotations);
+			if (hasOnlyIgnorable(methodAnnotations)
+					&& hasOnlyIgnorable(bridgedMethodAnnotations)) {
+				return DeclaredAnnotations.NONE;
 			}
-			return DeclaredAnnotations.NONE;
-		}
-
-		private boolean hasAnnotations(Annotation[] annotations) {
-			for (Annotation annotation : annotations) {
-				if(!isIgnorable(annotation.annotationType())) {
-					return true;
-				}
+			Set<Annotation> annotations = new LinkedHashSet<>(
+					methodAnnotations.length + bridgedMethodAnnotations.length);
+			for (Annotation annotation : methodAnnotations) {
+				annotations.add(annotation);
 			}
-			return false;
+			for (Annotation annotation : bridgedMethodAnnotations) {
+				annotations.add(annotation);
+			}
+			return DeclaredAnnotations.from(method, annotations);
 		}
-
-		private boolean isIgnorable(Class<?> type) {
-			return (type == Nullable.class || type == Deprecated.class);
-		}
-
 
 		private Method[] getMethods(Class<?> type) {
 			if (type == Object.class) {
@@ -307,7 +295,23 @@ class AnnotationsScanner implements Iterable<DeclaredAnnotations> {
 			if (!method.getName().equals(getSource().getName())) {
 				return false;
 			}
+			if (hasOnlyIgnorable(method.getDeclaredAnnotations())) {
+				return false;
+			}
 			return hasSameParameterTypes(method);
+		}
+
+		private boolean hasOnlyIgnorable(Annotation[] annotations) {
+			for (Annotation annotation : annotations) {
+				if(!isIgnorable(annotation.annotationType())) {
+					return false;
+				}
+			}
+			return true;
+		}
+
+		private boolean isIgnorable(Class<?> type) {
+			return (type == Nullable.class || type == Deprecated.class);
 		}
 
 		private boolean hasSameParameterTypes(Method method) {
@@ -352,7 +356,7 @@ class AnnotationsScanner implements Iterable<DeclaredAnnotations> {
 	}
 
 	/**
-	 * Provides ordred access to the superclass and interface hierarchy of a
+	 * Provides ordered access to the superclass and interface hierarchy of a
 	 * given class.
 	 */
 	private static final class TypeHierarchy implements Iterable<Class<?>> {
