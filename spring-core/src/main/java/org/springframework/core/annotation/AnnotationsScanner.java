@@ -19,9 +19,8 @@ package org.springframework.core.annotation;
 import java.lang.annotation.Annotation;
 import java.lang.reflect.AnnotatedElement;
 import java.lang.reflect.Method;
-import java.lang.reflect.Modifier;
+import java.util.AbstractCollection;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashSet;
@@ -30,17 +29,11 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Function;
 
-import org.apache.commons.logging.Log;
-
-import org.springframework.core.BridgeMethodResolver;
-import org.springframework.core.ResolvableType;
 import org.springframework.core.annotation.MergedAnnotations.SearchStrategy;
 import org.springframework.core.annotation.type.DeclaredAnnotations;
 import org.springframework.lang.Nullable;
-import org.springframework.util.ClassUtils;
 import org.springframework.util.ConcurrentReferenceHashMap;
 
 /**
@@ -50,158 +43,91 @@ import org.springframework.util.ConcurrentReferenceHashMap;
  * @author Phillip Webb
  * @since 5.2
  */
-class AnnotationsScanner implements Iterable<DeclaredAnnotations> {
+class AnnotationsScanner {
 
-	private static final AnnotationsScanner EMPTY = new EmptyAnnotationsScanner();
+	private static final Map<AnnotatedElement, Results[]> cache = new ConcurrentReferenceHashMap<>();
 
-	private static Map<AnnotatedElement, Results<?>> cache = new ConcurrentReferenceHashMap<>(
-			256);
-
-	@Nullable
-	private static transient Log logger;
-
-	private final Results<?> results;
-
-	private final SearchStrategy searchStrategy;
-
-	private AnnotationsScanner(AnnotatedElement source, SearchStrategy searchStrategy) {
-		this.results = source != null ? cache.computeIfAbsent(source, Results::create) : null;
-		this.searchStrategy = searchStrategy;
-	}
-
-	@Override
-	public Iterator<DeclaredAnnotations> iterator() {
-		return this.results.get(this.searchStrategy).iterator();
-	}
-
-	public int size() {
-		return this.results.get(this.searchStrategy).size();
-	}
-
-	public static AnnotationsScanner get(AnnotatedElement source,
+	public static Collection<DeclaredAnnotations> scan(AnnotatedElement source,
 			SearchStrategy searchStrategy) {
-		return new AnnotationsScanner(source, searchStrategy);
+		int cacheIndex = searchStrategy.ordinal();
+		Results[] cached = cache.get(source);
+		if (cached != null && cached[cacheIndex] != null) {
+			return cached[cacheIndex];
+		}
+		Results results = getResults(source, searchStrategy);
+		if (results != Results.NONE) {
+			if (cached == null) {
+				cached = new Results[SearchStrategy.values().length];
+				cache.put(source, cached);
+			}
+			cached[cacheIndex] = results;
+		}
+		return results;
+	}
+
+	private static Results getResults(AnnotatedElement source,
+			SearchStrategy searchStrategy) {
+		if (source instanceof Class) {
+			return ClassAnnotationsScanner.getResults((Class<?>) source, searchStrategy);
+		}
+		if (source instanceof Method) {
+			return MethodAnnotationsScanner.getResults((Method) source, searchStrategy);
+		}
+		return ElementAnnotationsScanner.getResults(source, searchStrategy);
 	}
 
 	static void clearCache() {
 		cache.clear();
 		TypeHierarchy.superclassesCache.clear();
 		TypeHierarchy.superclassesAndInterfacesCache.clear();
-		MethodResults.methodsCache.clear();
+		MethodAnnotationsScanner.methodsCache.clear();
 	}
 
-	/**
-	 * {@link AnnotationsScanner} that never has any results.
-	 */
-	private static class EmptyAnnotationsScanner extends AnnotationsScanner {
+	private static class ClassAnnotationsScanner {
 
-		EmptyAnnotationsScanner() {
-			super(null, null);
-		}
-
-		@Override
-		public int size() {
-			return 0;
-		}
-
-		@Override
-		public Iterator<DeclaredAnnotations> iterator() {
-			return Collections.emptyIterator();
-		}
-
-	}
-
-	/**
-	 * Cachable results for a single {@link AnnotatedElement} source.
-	 *
-	 * @param <E> the annotated element type
-	 * @see ClassResults
-	 * @see MethodResults
-	 * @see ElementResults
-	 */
-	private static abstract class Results<E extends AnnotatedElement> {
-
-		private final E source;
-
-		private final Map<SearchStrategy, Collection<DeclaredAnnotations>> results = new ConcurrentHashMap<>();
-
-		Results(E source) {
-			this.source = source;
-		}
-
-		public final Collection<DeclaredAnnotations> get(SearchStrategy searchStrategy) {
-			Collection<DeclaredAnnotations> result = this.results.get(searchStrategy);
-			if (result == null) {
-				result = compute(searchStrategy);
-				this.results.put(searchStrategy, result);
-			}
-			return result;
-		}
-
-		protected abstract Collection<DeclaredAnnotations> compute(
-				SearchStrategy searchStrategy);
-
-		protected final E getSource() {
-			return this.source;
-		}
-
-		static Results<?> create(AnnotatedElement element) {
-			if (element instanceof Class<?>) {
-				return new ClassResults((Class<?>) element);
-			}
-			if (element instanceof Method) {
-				return new MethodResults((Method) element);
-			}
-			return new ElementResults(element);
-		}
-
-	}
-
-	/**
-	 * Cacheable results for a single class element.
-	 */
-	private static class ClassResults extends Results<Class<?>> {
-
-		ClassResults(Class<?> source) {
-			super(source);
-		}
-
-		@Override
-		protected Collection<DeclaredAnnotations> compute(SearchStrategy searchStrategy) {
+		public static Results getResults(Class<?> source, SearchStrategy searchStrategy) {
 			switch (searchStrategy) {
 				case DIRECT:
-					return computeDirect();
+					return getDirect(source);
 				case INHERITED_ANNOTATIONS:
-					return computeInheritedAnnotations();
+					return getInheritedAnnotations(source);
 				case SUPER_CLASS:
-					return computeWithHierarchy(TypeHierarchy::superclasses);
+					return getWithHierarchy(TypeHierarchy::superclasses);
 				case EXHAUSTIVE:
-					return computeWithHierarchy(TypeHierarchy::superclassesAndInterfaces);
+					return getWithHierarchy(TypeHierarchy::superclassesAndInterfaces);
 			}
 			throw new IllegalStateException(
 					"Unsupported search strategy " + searchStrategy);
 		}
 
-		private Collection<DeclaredAnnotations> computeDirect() {
-			return Collections.singleton(getDeclaredAnnotations(getSource()));
+		private static Results getDirect(Class<?> source) {
+			Annotation[] annotations = source.getDeclaredAnnotations();
+			if (Results.isIgnorable(annotations)) {
+				return Results.NONE;
+			}
+			return Results.of(DeclaredAnnotations.from(source, annotations));
 		}
 
-		private Collection<DeclaredAnnotations> computeInheritedAnnotations() {
-			List<DeclaredAnnotations> result = new ArrayList<>();
-			Set<Class<?>> present = getAnnotationTypes(getSource().getAnnotations());
-			for (Class<?> type : TypeHierarchy.superclasses(getSource())) {
-				Set<Annotation> annotations = new LinkedHashSet<>(present.size());
-				for (Annotation annotation : type.getDeclaredAnnotations()) {
-					if(present.remove(annotation.annotationType())) {
-						annotations.add(annotation);
+		private static Results getInheritedAnnotations(Class<?> source) {
+			Annotation[] annotations = source.getAnnotations();
+			if (Results.isIgnorable(annotations)) {
+				return Results.NONE;
+			}
+			Set<Class<?>> types = getAnnotationTypes(annotations);
+			List<DeclaredAnnotations> aggregates = new ArrayList<>();
+			for (Class<?> type : TypeHierarchy.superclasses(source)) {
+				Set<Annotation> declaredAnnotations = new LinkedHashSet<>(types.size());
+				for (Annotation candidate : type.getDeclaredAnnotations()) {
+					if (types.remove(candidate.annotationType())) {
+						declaredAnnotations.add(candidate);
 					}
 				}
-				result.add(DeclaredAnnotations.from(type, annotations));
+				aggregates.add(DeclaredAnnotations.from(type, declaredAnnotations));
 			}
-			return result;
+			return Results.of(aggregates);
 		}
 
-		private Set<Class<?>> getAnnotationTypes(Annotation[] annotations) {
+		private static Set<Class<?>> getAnnotationTypes(Annotation[] annotations) {
 			Set<Class<?>> types = new HashSet<>(annotations.length);
 			for (Annotation annotation : annotations) {
 				types.add(annotation.annotationType());
@@ -209,186 +135,58 @@ class AnnotationsScanner implements Iterable<DeclaredAnnotations> {
 			return types;
 		}
 
-		private Collection<DeclaredAnnotations> computeWithHierarchy(
+		private static AnnotationsScanner createWithHierarchy(Class<?> source,
 				Function<Class<?>, TypeHierarchy> hierarchyFactory) {
-			List<DeclaredAnnotations> result = new ArrayList<>();
-			for (Class<?> type : hierarchyFactory.apply(getSource())) {
+			TypeHierarchy hierarchy = hierarchyFactory.apply(source);
+			DeclaredAnnotations[] result = new DeclaredAnnotations[hierarchy.size()];
+			int i = 0;
+			boolean ignorable = true;
+			for (Class<?> type : hierarchy) {
+				type.getDeclaredAnnotations();
+			}
+			if (ignorable) {
+				return null;
+			}
+			List<DeclaredAnnotations> result = null;
+			for (Class<?> type : apply) {
+				Annotation[] annotations = type.getDeclaredAnnotations();
+				if (!isIgnorable(annotations)) {
+
+				}
 				result.add(getDeclaredAnnotations(type));
 			}
 			return result;
 		}
 
-		private DeclaredAnnotations getDeclaredAnnotations(Class<?> type) {
-			return DeclaredAnnotations.from(type, type.getDeclaredAnnotations());
+	}
+
+	private static class MethodAnnotationsScanner extends AnnotationsScanner {
+
+		private static final Map<Class<?>, Method[]> methodsCache = new ConcurrentReferenceHashMap<>(
+				256);
+
+		static Results getResults(Method source, SearchStrategy searchStrategy) {
+			return null;
+		}
+	}
+
+	private static class ElementAnnotationsScanner extends AnnotationsScanner {
+
+		private static Results getResults(AnnotatedElement source,
+				SearchStrategy searchStrategy) {
+			return null;
 		}
 
 	}
 
 	/**
-	 * Cacheable results for a single method element.
-	 */
-	private static class MethodResults extends Results<Method> {
-
-		private static final Method[] NO_METHODS = {};
-
-		private static final Annotation[] NO_ANNOTATIONS = {};
-
-		private static final Map<Class<?>, Method[]> methodsCache = new ConcurrentReferenceHashMap<>(256);
-
-		MethodResults(Method source) {
-			super(source);
-		}
-
-		@Override
-		protected Collection<DeclaredAnnotations> compute(SearchStrategy searchStrategy) {
-			switch (searchStrategy) {
-				case DIRECT:
-					return computeDirect();
-				case INHERITED_ANNOTATIONS:
-					return get(SearchStrategy.DIRECT);
-				case SUPER_CLASS:
-					return computeWithHierarchy(TypeHierarchy::superclasses);
-				case EXHAUSTIVE:
-					return computeWithHierarchy(TypeHierarchy::superclassesAndInterfaces);
-			}
-			throw new IllegalStateException(
-					"Unsupported search strategy " + searchStrategy);
-		}
-
-		private Collection<DeclaredAnnotations> computeDirect() {
-			return Collections.singleton(getAnnotations(getSource()));
-		}
-
-		private Collection<DeclaredAnnotations> computeWithHierarchy(
-				Function<Class<?>, TypeHierarchy> hierarchyFactory) {
-			Method source = getSource();
-			if (Modifier.isPrivate(source.getModifiers())) {
-				return get(SearchStrategy.DIRECT);
-			}
-			List<DeclaredAnnotations> result = new ArrayList<>();
-			Class<?> declaringClass = source.getDeclaringClass();
-			result.add(getAnnotations(source));
-			for (Class<?> type : hierarchyFactory.apply(declaringClass)) {
-				if (type != declaringClass) {
-					for (Method method : getMethods(type)) {
-						if (isOverride(type, method)) {
-							result.add(getAnnotations(method));
-						}
-					}
-				}
-			}
-			return result;
-		}
-
-		private DeclaredAnnotations getAnnotations(Method method) {
-			Method bridgedMethod = BridgeMethodResolver.findBridgedMethod(method);
-			Annotation[] methodAnnotations = method.getDeclaredAnnotations();
-			Annotation[] bridgedMethodAnnotations = bridgedMethod != method
-					? bridgedMethod.getDeclaredAnnotations()
-					: NO_ANNOTATIONS;
-			if (hasOnlyIgnorable(methodAnnotations)
-					&& hasOnlyIgnorable(bridgedMethodAnnotations)) {
-				return DeclaredAnnotations.NONE;
-			}
-			Set<Annotation> annotations = new LinkedHashSet<>(
-					methodAnnotations.length + bridgedMethodAnnotations.length);
-			for (Annotation annotation : methodAnnotations) {
-				annotations.add(annotation);
-			}
-			for (Annotation annotation : bridgedMethodAnnotations) {
-				annotations.add(annotation);
-			}
-			return DeclaredAnnotations.from(method, annotations);
-		}
-
-		private boolean hasOnlyIgnorable(Annotation[] annotations) {
-			for (Annotation annotation : annotations) {
-				if(!isIgnorable(annotation.annotationType())) {
-					return false;
-				}
-			}
-			return true;
-		}
-
-		private boolean isIgnorable(Class<?> type) {
-			return (type == Nullable.class || type == Deprecated.class);
-		}
-
-		private Method[] getMethods(Class<?> type) {
-			if (type == Object.class) {
-				return NO_METHODS;
-			}
-			if (type.isInterface() && ClassUtils.isJavaLanguageInterface(type)) {
-				return NO_METHODS;
-			}
-			Method[] result = methodsCache.get(type);
-			if (result == null) {
-				result = type.isInterface() ? type.getMethods() : type.getDeclaredMethods();
-				methodsCache.put(type, result.length == 0 ? NO_METHODS : result);
-			}
-			return result;
-		}
-
-		private boolean isOverride(Class<?> type, Method method) {
-			if (!type.isInterface() && Modifier.isPrivate(method.getModifiers())) {
-				return false;
-			}
-			if (!method.getName().equals(getSource().getName())) {
-				return false;
-			}
-			return hasSameParameterTypes(method);
-		}
-
-		private boolean hasSameParameterTypes(Method method) {
-			if (method.getParameterCount() != getSource().getParameterCount()) {
-				return false;
-			}
-			Class<?>[] types = getSource().getParameterTypes();
-			if (Arrays.equals(method.getParameterTypes(), types)) {
-				return true;
-			}
-			Class<?> implementationClass = getSource().getDeclaringClass();
-			for (int i = 0; i < types.length; i++) {
-				Class<?> resolved = ResolvableType.forMethodParameter(method, i,
-						implementationClass).resolve();
-				if (types[i] != resolved) {
-					return false;
-				}
-			}
-			return true;
-		}
-
-	}
-
-	/**
-	 * Cacheable results for a single annotated element.
-	 */
-	private static class ElementResults extends Results<AnnotatedElement> {
-
-		public ElementResults(AnnotatedElement source) {
-			super(source);
-		}
-
-		@Override
-		protected Collection<DeclaredAnnotations> compute(SearchStrategy searchStrategy) {
-			if (searchStrategy != SearchStrategy.DIRECT) {
-				return get(SearchStrategy.DIRECT);
-			}
-			return Collections.singleton(DeclaredAnnotations.from(getSource(),
-					getSource().getDeclaredAnnotations()));
-		}
-
-	}
-
-	/**
-	 * Provides ordered access to the superclass and interface hierarchy of a
-	 * given class.
+	 * Provides ordered access to the superclass and interface hierarchy of a given class.
 	 */
 	private static final class TypeHierarchy implements Iterable<Class<?>> {
 
-		private static Map<Class<?>, TypeHierarchy> superclassesCache = new ConcurrentReferenceHashMap<>();
+		private static final Map<Class<?>, TypeHierarchy> superclassesCache = new ConcurrentReferenceHashMap<>();
 
-		private static Map<Class<?>, TypeHierarchy> superclassesAndInterfacesCache = new ConcurrentReferenceHashMap<>();
+		private static final Map<Class<?>, TypeHierarchy> superclassesAndInterfacesCache = new ConcurrentReferenceHashMap<>();
 
 		private final Set<Class<?>> hierarchy = new LinkedHashSet<>();
 
@@ -414,6 +212,10 @@ class AnnotationsScanner implements Iterable<DeclaredAnnotations> {
 			return this.hierarchy.iterator();
 		}
 
+		public int size() {
+			return this.hierarchy.size();
+		}
+
 		public static TypeHierarchy superclasses(Class<?> type) {
 			return superclassesCache.computeIfAbsent(type,
 					key -> new TypeHierarchy(type, false));
@@ -422,6 +224,48 @@ class AnnotationsScanner implements Iterable<DeclaredAnnotations> {
 		public static TypeHierarchy superclassesAndInterfaces(Class<?> type) {
 			return superclassesAndInterfacesCache.computeIfAbsent(type,
 					key -> new TypeHierarchy(type, true));
+		}
+
+	}
+
+	private static class Results extends AbstractCollection<DeclaredAnnotations> {
+
+		private static final Results NONE = new Results();
+
+		@Override
+		public Iterator<DeclaredAnnotations> iterator() {
+			return null;
+		}
+
+		/**
+		 * @param aggregates
+		 * @return
+		 */
+		public static Results of(List<DeclaredAnnotations> aggregates) {
+			// TODO Auto-generated method stub
+			throw new UnsupportedOperationException("Auto-generated method stub");
+		}
+
+		@Override
+		public int size() {
+			return 0;
+		}
+
+		private static boolean isIgnorable(Annotation[] annotations) {
+			for (Annotation annotation : annotations) {
+				if (!isIgnorable(annotation.annotationType())) {
+					return false;
+				}
+			}
+			return true;
+		}
+
+		private static boolean isIgnorable(Class<?> type) {
+			return (type == Nullable.class || type == Deprecated.class);
+		}
+
+		public static Results of(DeclaredAnnotations from) {
+			throw new UnsupportedOperationException("Auto-generated method stub");
 		}
 
 	}
