@@ -240,8 +240,9 @@ public abstract class AnnotatedElementUtils {
 	@Nullable
 	public static AnnotationAttributes getMergedAnnotationAttributes(
 			AnnotatedElement element, Class<? extends Annotation> annotationType) {
-		return getAnnotations(element).getFirst(annotationType).asMap(
-				AnnotationAttributes::createIfAnnotationPresent);
+		return getAnnotations(element).get(annotationType, null,
+				MergedAnnotationSelectors.firstDirectlyDeclared()).asMap(
+						AnnotationAttributes::createIfAnnotationPresent);
 	}
 
 	/**
@@ -296,9 +297,10 @@ public abstract class AnnotatedElementUtils {
 	@Nullable
 	public static AnnotationAttributes getMergedAnnotationAttributes(AnnotatedElement element,
 			String annotationName, boolean classValuesAsString, boolean nestedAnnotationsAsMap) {
-		return getAnnotations(element).getFirst(annotationName).asMap(
-				AnnotationAttributes::createIfAnnotationPresent,
-				MapValues.of(classValuesAsString, nestedAnnotationsAsMap));
+		return getAnnotations(element).get(annotationName, null,
+				MergedAnnotationSelectors.firstDirectlyDeclared()).asMap(
+						AnnotationAttributes::createIfAnnotationPresent,
+						MapValues.of(classValuesAsString, nestedAnnotationsAsMap));
 	}
 
 	/**
@@ -321,8 +323,9 @@ public abstract class AnnotatedElementUtils {
 	 */
 	@Nullable
 	public static <A extends Annotation> A getMergedAnnotation(AnnotatedElement element, Class<A> annotationType) {
-		return getAnnotations(element).getFirst(annotationType).synthesize(
-				MergedAnnotation::isPresent).orElse(null);
+		return getAnnotations(element).get(annotationType, null,
+				MergedAnnotationSelectors.firstDirectlyDeclared()).synthesize(
+						MergedAnnotation::isPresent).orElse(null);
 	}
 
 	/**
@@ -533,9 +536,10 @@ public abstract class AnnotatedElementUtils {
 	@Nullable
 	public static AnnotationAttributes findMergedAnnotationAttributes(AnnotatedElement element,
 			Class<? extends Annotation> annotationType, boolean classValuesAsString, boolean nestedAnnotationsAsMap) {
-		return findAnnotations(element).getFirst(annotationType).asMap(
-				AnnotationAttributes::createIfAnnotationPresent,
-				MapValues.of(classValuesAsString, nestedAnnotationsAsMap));
+		return findAnnotations(element).get(annotationType, null,
+				MergedAnnotationSelectors.firstDirectlyDeclared()).asMap(
+						AnnotationAttributes::createIfAnnotationPresent,
+						MapValues.of(classValuesAsString, nestedAnnotationsAsMap));
 	}
 
 	/**
@@ -568,9 +572,10 @@ public abstract class AnnotatedElementUtils {
 	@Nullable
 	public static AnnotationAttributes findMergedAnnotationAttributes(AnnotatedElement element,
 			String annotationName, boolean classValuesAsString, boolean nestedAnnotationsAsMap) {
-		return findAnnotations(element).getFirst(annotationName).asMap(
-				AnnotationAttributes::createIfAnnotationPresent,
-				MapValues.of(classValuesAsString, nestedAnnotationsAsMap));
+		return findAnnotations(element).get(annotationName, null,
+				MergedAnnotationSelectors.firstDirectlyDeclared()).asMap(
+						AnnotationAttributes::createIfAnnotationPresent,
+						MapValues.of(classValuesAsString, nestedAnnotationsAsMap));
 	}
 
 	/**
@@ -593,8 +598,9 @@ public abstract class AnnotatedElementUtils {
 	 */
 	@Nullable
 	public static <A extends Annotation> A findMergedAnnotation(AnnotatedElement element, Class<A> annotationType) {
-		return findAnnotations(element).getFirst(annotationType).synthesize(
-				MergedAnnotation::isPresent).orElse(null);
+		return findAnnotations(element).get(annotationType, null,
+				MergedAnnotationSelectors.firstDirectlyDeclared()).synthesize(
+						MergedAnnotation::isPresent).orElse(null);
 	}
 
 	/**
@@ -709,8 +715,8 @@ public abstract class AnnotatedElementUtils {
 						MergedAnnotationCollectors.toAnnotationSet());
 	}
 
-	private static TypeMappedAnnotations getAnnotations(AnnotatedElement element) {
-		return TypeMappedAnnotations.from(element, SearchStrategy.INHERITED_ANNOTATIONS,
+	private static MergedAnnotations getAnnotations(AnnotatedElement element) {
+		return MergedAnnotations.from(element, SearchStrategy.INHERITED_ANNOTATIONS,
 				RepeatableContainers.none(), AnnotationFilter.PLAIN);
 	}
 
@@ -723,8 +729,8 @@ public abstract class AnnotatedElementUtils {
 				repeatableContainers, AnnotationFilter.PLAIN);
 	}
 
-	private static TypeMappedAnnotations findAnnotations(AnnotatedElement element) {
-		return TypeMappedAnnotations.from(element, SearchStrategy.EXHAUSTIVE,
+	private static MergedAnnotations findAnnotations(AnnotatedElement element) {
+		return MergedAnnotations.from(element, SearchStrategy.EXHAUSTIVE,
 				RepeatableContainers.none(), AnnotationFilter.PLAIN);
 	}
 
