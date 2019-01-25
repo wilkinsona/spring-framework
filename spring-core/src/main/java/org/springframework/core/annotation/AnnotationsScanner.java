@@ -273,6 +273,19 @@ class AnnotationsScanner implements Iterable<DeclaredAnnotations> {
 			return DeclaredAnnotations.from(method, annotations);
 		}
 
+		private boolean hasOnlyIgnorable(Annotation[] annotations) {
+			for (Annotation annotation : annotations) {
+				if(!isIgnorable(annotation.annotationType())) {
+					return false;
+				}
+			}
+			return true;
+		}
+
+		private boolean isIgnorable(Class<?> type) {
+			return (type == Nullable.class || type == Deprecated.class);
+		}
+
 		private Method[] getMethods(Class<?> type) {
 			if (type == Object.class) {
 				return NO_METHODS;
@@ -295,23 +308,7 @@ class AnnotationsScanner implements Iterable<DeclaredAnnotations> {
 			if (!method.getName().equals(getSource().getName())) {
 				return false;
 			}
-			if (hasOnlyIgnorable(method.getDeclaredAnnotations())) {
-				return false;
-			}
 			return hasSameParameterTypes(method);
-		}
-
-		private boolean hasOnlyIgnorable(Annotation[] annotations) {
-			for (Annotation annotation : annotations) {
-				if(!isIgnorable(annotation.annotationType())) {
-					return false;
-				}
-			}
-			return true;
-		}
-
-		private boolean isIgnorable(Class<?> type) {
-			return (type == Nullable.class || type == Deprecated.class);
 		}
 
 		private boolean hasSameParameterTypes(Method method) {
