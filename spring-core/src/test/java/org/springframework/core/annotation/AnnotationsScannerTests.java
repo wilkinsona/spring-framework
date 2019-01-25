@@ -459,7 +459,7 @@ public class AnnotationsScannerTests {
 	}
 
 	private Stream<String> scan(AnnotatedElement source, SearchStrategy searchStrategy) {
-		AnnotationsScanner scanner = new AnnotationsScanner(source, searchStrategy);
+		AnnotationsScanner scanner = AnnotationsScanner.get(source, searchStrategy);
 		return stream(scanner).flatMap(new Mapper());
 	}
 

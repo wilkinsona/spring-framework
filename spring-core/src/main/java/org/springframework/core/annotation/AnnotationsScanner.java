@@ -52,6 +52,8 @@ import org.springframework.util.ConcurrentReferenceHashMap;
  */
 class AnnotationsScanner implements Iterable<DeclaredAnnotations> {
 
+	private static final AnnotationsScanner EMPTY = new EmptyAnnotationsScanner();
+
 	private static Map<AnnotatedElement, Results<?>> cache = new ConcurrentReferenceHashMap<>(
 			256);
 
@@ -62,8 +64,8 @@ class AnnotationsScanner implements Iterable<DeclaredAnnotations> {
 
 	private final SearchStrategy searchStrategy;
 
-	AnnotationsScanner(AnnotatedElement source, SearchStrategy searchStrategy) {
-		this.results = cache.computeIfAbsent(source, Results::create);
+	private AnnotationsScanner(AnnotatedElement source, SearchStrategy searchStrategy) {
+		this.results = source != null ? cache.computeIfAbsent(source, Results::create) : null;
 		this.searchStrategy = searchStrategy;
 	}
 
@@ -76,11 +78,37 @@ class AnnotationsScanner implements Iterable<DeclaredAnnotations> {
 		return this.results.get(this.searchStrategy).size();
 	}
 
+	public static AnnotationsScanner get(AnnotatedElement source,
+			SearchStrategy searchStrategy) {
+		return new AnnotationsScanner(source, searchStrategy);
+	}
+
 	static void clearCache() {
 		cache.clear();
 		TypeHierarchy.superclassesCache.clear();
 		TypeHierarchy.superclassesAndInterfacesCache.clear();
 		MethodResults.methodsCache.clear();
+	}
+
+	/**
+	 * {@link AnnotationsScanner} that never has any results.
+	 */
+	private static class EmptyAnnotationsScanner extends AnnotationsScanner {
+
+		EmptyAnnotationsScanner() {
+			super(null, null);
+		}
+
+		@Override
+		public int size() {
+			return 0;
+		}
+
+		@Override
+		public Iterator<DeclaredAnnotations> iterator() {
+			return Collections.emptyIterator();
+		}
+
 	}
 
 	/**

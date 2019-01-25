@@ -23,7 +23,6 @@ import java.util.LinkedHashSet;
 import java.util.Objects;
 import java.util.Set;
 import java.util.function.Predicate;
-import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import org.springframework.lang.Nullable;
@@ -80,10 +79,14 @@ abstract class AbstractMergedAnnotations implements MergedAnnotations {
 
 	@Override
 	public <A extends Annotation> Set<MergedAnnotation<A>> getAll(String annotationType) {
-		Stream<MergedAnnotation<A>> annotations = stream(annotationType);
-		Set<MergedAnnotation<A>> set = annotations.collect(
-				Collectors.toCollection(LinkedHashSet<MergedAnnotation<A>>::new));
-		return Collections.unmodifiableSet(set);
+		Set<MergedAnnotation<Annotation>> all = getAll();
+		Set<MergedAnnotation<A>> result = new LinkedHashSet<>(all.size());
+		for (MergedAnnotation<A> candidate : result) {
+			if(Objects.equals(candidate.getType(), annotationType)) {
+				result.add(candidate);
+			}
+		}
+		return Collections.unmodifiableSet(result);
 	}
 
 	@Override

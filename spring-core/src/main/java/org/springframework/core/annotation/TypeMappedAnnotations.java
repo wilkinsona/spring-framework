@@ -26,7 +26,6 @@ import java.util.Deque;
 import java.util.Iterator;
 import java.util.LinkedHashSet;
 import java.util.List;
-import java.util.Map;
 import java.util.Set;
 import java.util.function.Predicate;
 
@@ -35,7 +34,6 @@ import org.springframework.core.annotation.type.DeclaredAnnotations;
 import org.springframework.core.annotation.type.DeclaredAttributes;
 import org.springframework.lang.Nullable;
 import org.springframework.util.Assert;
-import org.springframework.util.ConcurrentReferenceHashMap;
 
 /**
  * {@link MergedAnnotations} implementation that uses {@link AnnotationTypeMappings} to
@@ -49,8 +47,6 @@ final class TypeMappedAnnotations extends AbstractMergedAnnotations {
 	private final List<MappableAnnotations> aggregates;
 
 	private volatile Set<MergedAnnotation<Annotation>> all;
-
-	private Map<String, Set<MergedAnnotation<?>>> allByType = new ConcurrentReferenceHashMap<>();
 
 	private TypeMappedAnnotations(AnnotatedElement source, Annotation[] annotations,
 			RepeatableContainers repeatableContainers,
@@ -133,17 +129,6 @@ final class TypeMappedAnnotations extends AbstractMergedAnnotations {
 		return MergedAnnotation.missing();
 	}
 
-	@Override
-	@SuppressWarnings({ "unchecked", "rawtypes" })
-	public <A extends Annotation> Set<MergedAnnotation<A>> getAll(String annotationType) {
-		Set<MergedAnnotation<?>> result = this.allByType.get(annotationType);
-		if (result == null) {
-			result = (Set) super.getAll(annotationType);
-			this.allByType.put(annotationType, result);
-		}
-		return (Set) result;
-	}
-
 	public Set<MergedAnnotation<Annotation>> getAll() {
 		Set<MergedAnnotation<Annotation>> all = this.all;
 		if (all == null) {
@@ -202,7 +187,7 @@ final class TypeMappedAnnotations extends AbstractMergedAnnotations {
 		Assert.notNull(annotationFilter, "AnnotationFilter must not be null");
 		Assert.notNull(searchStrategy, "SearchStrategy must not be null");
 		Assert.notNull(element, "Element must not be null");
-		AnnotationsScanner annotations = new AnnotationsScanner(element, searchStrategy);
+		AnnotationsScanner annotations = AnnotationsScanner.get(element, searchStrategy);
 		return of(null, annotations, repeatableContainers, annotationFilter);
 	}
 
