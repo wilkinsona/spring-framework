@@ -1177,7 +1177,7 @@ public class TypeMappedAnnotationTests {
 
 	@Test
 	public void fromAnnotationTypeReturnsAnnotation() {
-		TypeMappedAnnotation<?> annotation = TypeMappedAnnotation.from(
+		MergedAnnotation<?> annotation = TypeMappedAnnotation.from(
 				null, AnnotationTypeAnnotation.class, null);
 		assertThat(annotation.getType()).isEqualTo(
 				AnnotationTypeAnnotation.class.getName());
@@ -1198,7 +1198,7 @@ public class TypeMappedAnnotationTests {
 
 	@Test
 	public void fromAnnotationReturnsAnnotation() {
-		TypeMappedAnnotation<?> annotation = TypeMappedAnnotation.from(
+		MergedAnnotation<?> annotation = TypeMappedAnnotation.from(
 				WithAnnotationTypeAnnotation.class,
 				WithAnnotationTypeAnnotation.class.getDeclaredAnnotation(
 						AnnotationTypeAnnotation.class));

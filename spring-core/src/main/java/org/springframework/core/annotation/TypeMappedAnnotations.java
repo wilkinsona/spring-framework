@@ -86,40 +86,10 @@ final class TypeMappedAnnotations extends AbstractMergedAnnotations {
 		return false;
 	}
 
-	<A extends Annotation> MergedAnnotation<A> getFirst(Class<A> annotationType) {
-		return getFirst(getClassName(annotationType));
-	}
-
-	<A extends Annotation> MergedAnnotation<A> getFirst(String annotationType) {
-		return get(annotationType, null, this::selectFirst);
-	}
-
-	private <A extends Annotation> MergedAnnotation<A> selectFirst(
-			MergedAnnotation<A> existing, MergedAnnotation<A> candidate) {
-		// FIXME rename this and other first methods
-		if (existing.getDepth() > 0 && candidate.getDepth() == 0) {
-			return candidate;
-		}
-		return existing;
-	}
-
-	@Override
 	public <A extends Annotation> MergedAnnotation<A> get(String annotationType,
-			@Nullable Predicate<? super MergedAnnotation<A>> predicate) {
-		return get(annotationType, predicate, this::selectLowestDepth);
-	}
-
-	private <A extends Annotation> MergedAnnotation<A> selectLowestDepth(
-			MergedAnnotation<A> existing, MergedAnnotation<A> candidate) {
-		if (candidate.getDepth() < existing.getDepth()) {
-			return candidate;
-		}
-		return existing;
-	}
-
-	private <A extends Annotation> MergedAnnotation<A> get(String annotationType,
 			@Nullable Predicate<? super MergedAnnotation<A>> predicate,
 			MergedAnnotationSelector<A> selector) {
+		selector = selector != null ? selector : MergedAnnotationSelectors.nearest();
 		for (MappableAnnotations annotations : this.aggregates) {
 			MergedAnnotation<A> result = annotations.get(annotationType, predicate,
 					selector);
@@ -181,8 +151,8 @@ final class TypeMappedAnnotations extends AbstractMergedAnnotations {
 		return size;
 	}
 
-	static TypeMappedAnnotations from(AnnotatedElement element,
-			SearchStrategy searchStrategy, RepeatableContainers repeatableContainers,
+	static MergedAnnotations from(AnnotatedElement element, SearchStrategy searchStrategy,
+			RepeatableContainers repeatableContainers,
 			AnnotationFilter annotationFilter) {
 		Assert.notNull(repeatableContainers, "RepeatableContainers must not be null");
 		Assert.notNull(annotationFilter, "AnnotationFilter must not be null");
@@ -193,7 +163,7 @@ final class TypeMappedAnnotations extends AbstractMergedAnnotations {
 		return of(null, aggregates, repeatableContainers, annotationFilter);
 	}
 
-	static TypeMappedAnnotations from(@Nullable AnnotatedElement source,
+	static MergedAnnotations from(@Nullable AnnotatedElement source,
 			Annotation[] annotations, RepeatableContainers repeatableContainers,
 			AnnotationFilter annotationFilter) {
 		Assert.notNull(annotations, "Annotations must not be null");
@@ -201,12 +171,12 @@ final class TypeMappedAnnotations extends AbstractMergedAnnotations {
 				annotationFilter);
 	}
 
-	static TypeMappedAnnotations of(ClassLoader classLoader,
+	static MergedAnnotations of(ClassLoader classLoader,
 			Iterable<DeclaredAnnotations> aggregates,
 			RepeatableContainers repeatableContainers,
 			AnnotationFilter annotationFilter) {
-		if(hasNoAnnotations(aggregates)) {
-			//return EmptyMergedAnnotations.INSTANCE;
+		if (hasNoAnnotations(aggregates)) {
+			return EmptyMergedAnnotations.INSTANCE;
 		}
 		return new TypeMappedAnnotations(classLoader, aggregates, repeatableContainers,
 				annotationFilter);
@@ -214,7 +184,7 @@ final class TypeMappedAnnotations extends AbstractMergedAnnotations {
 
 	private static boolean hasNoAnnotations(Iterable<DeclaredAnnotations> aggregates) {
 		for (DeclaredAnnotations annotations : aggregates) {
-			if(annotations != DeclaredAnnotations.NONE) {
+			if (annotations != DeclaredAnnotations.NONE) {
 				return false;
 			}
 		}
@@ -320,23 +290,6 @@ final class TypeMappedAnnotations extends AbstractMergedAnnotations {
 		public Iterator<MappableAnnotation> iterator() {
 			return this.mappableAnnotations.iterator();
 		}
-
-	}
-
-	/**
-	 * Strategy interface used to select between two annotations.
-	 */
-	private interface MergedAnnotationSelector<A extends Annotation> {
-
-		/**
-		 * Select the annotation that should be used.
-		 * @param existing an existing annotation returned from an earlier result
-		 * @param candidate a candidate annotation that may be better suited
-		 * @return the most appropriate annotation from the {@code existing} or
-		 * {@code candidate}
-		 */
-		MergedAnnotation<A> select(MergedAnnotation<A> existing,
-				MergedAnnotation<A> candidate);
 
 	}
 

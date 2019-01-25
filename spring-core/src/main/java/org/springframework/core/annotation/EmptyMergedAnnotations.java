@@ -36,7 +36,8 @@ class EmptyMergedAnnotations extends AbstractMergedAnnotations {
 
 	@Override
 	public <A extends Annotation> MergedAnnotation<A> get(String annotationType,
-			Predicate<? super MergedAnnotation<A>> predicate) {
+			Predicate<? super MergedAnnotation<A>> predicate,
+			MergedAnnotationSelector<A> selector) {
 		return MergedAnnotation.missing();
 	}
 

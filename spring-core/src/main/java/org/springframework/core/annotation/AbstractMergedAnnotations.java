@@ -47,13 +47,20 @@ abstract class AbstractMergedAnnotations implements MergedAnnotations {
 
 	@Override
 	public <A extends Annotation> MergedAnnotation<A> get(Class<A> annotationType) {
-		return get(getClassName(annotationType), null);
+		return get(getClassName(annotationType), null, null);
 	}
 
 	@Override
 	public <A extends Annotation> MergedAnnotation<A> get(Class<A> annotationType,
 			@Nullable Predicate<? super MergedAnnotation<A>> predicate) {
-		return get(getClassName(annotationType), predicate);
+		return get(getClassName(annotationType), predicate, null);
+	}
+
+	@Override
+	public <A extends Annotation> MergedAnnotation<A> get(Class<A> annotationType,
+			Predicate<? super MergedAnnotation<A>> predicate,
+			MergedAnnotationSelector<A> selector) {
+		return get(getClassName(annotationType), predicate, selector);
 	}
 
 	@Override
@@ -64,11 +71,7 @@ abstract class AbstractMergedAnnotations implements MergedAnnotations {
 	@Override
 	public <A extends Annotation> MergedAnnotation<A> get(String annotationType,
 			@Nullable Predicate<? super MergedAnnotation<A>> predicate) {
-		Stream<MergedAnnotation<A>> matches = stream(annotationType);
-		if (predicate != null) {
-			matches = matches.filter(predicate);
-		}
-		return matches.findFirst().orElse(MergedAnnotation.missing());
+		return get(annotationType, predicate, null);
 	}
 
 	@Override
