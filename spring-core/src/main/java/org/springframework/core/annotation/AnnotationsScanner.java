@@ -52,6 +52,9 @@ class AnnotationsScanner {
 
 	private static final Map<AnnotatedElement, Results[]> cache = new ConcurrentReferenceHashMap<>();
 
+	private AnnotationsScanner() {
+	}
+
 	/**
 	 * Scan the given source using the specified strategy.
 	 * @param source the source to scan
@@ -388,7 +391,7 @@ class AnnotationsScanner {
 	/**
 	 * A {@link Collection} of {@link DeclaredAnnotations} returned from the scanner.
 	 */
-	static class Results extends AbstractCollection<DeclaredAnnotations> {
+	static final class Results extends AbstractCollection<DeclaredAnnotations> {
 
 		private static final Results NONE = new Results(Collections.emptySet());
 

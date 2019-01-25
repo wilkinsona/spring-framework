@@ -23,6 +23,7 @@ import java.lang.annotation.Annotation;
  *
  * @author Phillip Webb
  * @since 5.2
+ * @param <A> the annotation type
  * @see MergedAnnotationSelectors
  */
 public interface MergedAnnotationSelector<A extends Annotation> {

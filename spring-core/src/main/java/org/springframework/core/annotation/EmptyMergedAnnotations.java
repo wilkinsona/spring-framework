@@ -27,7 +27,7 @@ import java.util.function.Predicate;
  * @author Phillip Webb
  * @since 5.2
  */
-class EmptyMergedAnnotations extends AbstractMergedAnnotations {
+final class EmptyMergedAnnotations extends AbstractMergedAnnotations {
 
 	public static final EmptyMergedAnnotations INSTANCE = new EmptyMergedAnnotations();
 

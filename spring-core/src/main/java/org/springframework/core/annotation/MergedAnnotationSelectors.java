@@ -28,7 +28,7 @@ import java.util.function.Predicate;
  * @see MergedAnnotations#get(Class, Predicate, MergedAnnotationSelector)
  * @see MergedAnnotations#get(String, Predicate, MergedAnnotationSelector)
  */
-public class MergedAnnotationSelectors {
+public final class MergedAnnotationSelectors {
 
 	private MergedAnnotationSelectors() {
 	}
