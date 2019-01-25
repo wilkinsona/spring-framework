@@ -24,6 +24,7 @@ import java.lang.annotation.RetentionPolicy;
 import java.lang.reflect.AnnotatedElement;
 import java.lang.reflect.Method;
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.function.Function;
 import java.util.stream.Stream;
 import java.util.stream.StreamSupport;
@@ -459,8 +460,8 @@ public class AnnotationsScannerTests {
 	}
 
 	private Stream<String> scan(AnnotatedElement source, SearchStrategy searchStrategy) {
-		AnnotationsScanner scanner = AnnotationsScanner.get(source, searchStrategy);
-		return stream(scanner).flatMap(new Mapper());
+		Collection<DeclaredAnnotations> scanned = AnnotationsScanner.scan(source, searchStrategy);
+		return scanned.stream().flatMap(new Mapper());
 	}
 
 	static class Mapper implements Function<DeclaredAnnotations, Stream<String>> {
@@ -480,10 +481,6 @@ public class AnnotationsScannerTests {
 					});
 		}
 
-	}
-
-	private Stream<DeclaredAnnotations> stream(AnnotationsScanner scanner) {
-		return StreamSupport.stream(scanner.spliterator(), false);
 	}
 
 	@Retention(RetentionPolicy.RUNTIME)

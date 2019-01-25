@@ -21,6 +21,7 @@ import java.lang.reflect.AnnotatedElement;
 import java.lang.reflect.Member;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.Deque;
 import java.util.Iterator;
@@ -69,8 +70,8 @@ final class TypeMappedAnnotations extends AbstractMergedAnnotations {
 	}
 
 	private int getInitialSize(Iterable<DeclaredAnnotations> aggregates) {
-		if (aggregates instanceof AnnotationsScanner) {
-			return ((AnnotationsScanner) aggregates).size();
+		if (aggregates instanceof Collection) {
+			return ((Collection<?>) aggregates).size();
 		}
 		return 10;
 	}
@@ -187,8 +188,9 @@ final class TypeMappedAnnotations extends AbstractMergedAnnotations {
 		Assert.notNull(annotationFilter, "AnnotationFilter must not be null");
 		Assert.notNull(searchStrategy, "SearchStrategy must not be null");
 		Assert.notNull(element, "Element must not be null");
-		AnnotationsScanner annotations = AnnotationsScanner.get(element, searchStrategy);
-		return of(null, annotations, repeatableContainers, annotationFilter);
+		Collection<DeclaredAnnotations> aggregates = AnnotationsScanner.scan(element,
+				searchStrategy);
+		return of(null, aggregates, repeatableContainers, annotationFilter);
 	}
 
 	static TypeMappedAnnotations from(@Nullable AnnotatedElement source,
@@ -203,8 +205,20 @@ final class TypeMappedAnnotations extends AbstractMergedAnnotations {
 			Iterable<DeclaredAnnotations> aggregates,
 			RepeatableContainers repeatableContainers,
 			AnnotationFilter annotationFilter) {
+		if(hasNoAnnotations(aggregates)) {
+			//return EmptyMergedAnnotations.INSTANCE;
+		}
 		return new TypeMappedAnnotations(classLoader, aggregates, repeatableContainers,
 				annotationFilter);
+	}
+
+	private static boolean hasNoAnnotations(Iterable<DeclaredAnnotations> aggregates) {
+		for (DeclaredAnnotations annotations : aggregates) {
+			if(annotations != DeclaredAnnotations.NONE) {
+				return false;
+			}
+		}
+		return true;
 	}
 
 	/**
