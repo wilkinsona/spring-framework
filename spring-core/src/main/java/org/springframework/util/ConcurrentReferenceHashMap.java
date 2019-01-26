@@ -31,6 +31,7 @@ import java.util.NoSuchElementException;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.locks.ReentrantLock;
 
 import org.springframework.lang.Nullable;
@@ -93,6 +94,8 @@ public class ConcurrentReferenceHashMap<K, V> extends AbstractMap<K, V> implemen
 	 * The shift value used to calculate the size of the segments array and an index from the hash.
 	 */
 	private final int shift;
+
+	private final AtomicInteger getReferenceCallCount = new AtomicInteger(0);
 
 	/**
 	 * Late binding entry set.
@@ -231,26 +234,26 @@ public class ConcurrentReferenceHashMap<K, V> extends AbstractMap<K, V> implemen
 	@Override
 	@Nullable
 	public V get(@Nullable Object key) {
-		Entry<K, V> entry = getEntryIfAvailable(key);
+		Entry<K, V> entry = getEntryIfAvailable(key, Restructure.WHEN_NECESSARY);
 		return (entry != null ? entry.getValue() : null);
 	}
 
 	@Override
 	@Nullable
 	public V getOrDefault(@Nullable Object key, @Nullable V defaultValue) {
-		Entry<K, V> entry = getEntryIfAvailable(key);
+		Entry<K, V> entry = getEntryIfAvailable(key, Restructure.WHEN_NECESSARY);
 		return (entry != null ? entry.getValue() : defaultValue);
 	}
 
 	@Override
 	public boolean containsKey(@Nullable Object key) {
-		Entry<K, V> entry = getEntryIfAvailable(key);
+		Entry<K, V> entry = getEntryIfAvailable(key, Restructure.NEVER);
 		return (entry != null && ObjectUtils.nullSafeEquals(entry.getKey(), key));
 	}
 
 	@Nullable
-	private Entry<K, V> getEntryIfAvailable(@Nullable Object key) {
-		Reference<K, V> ref = getReference(key, Restructure.WHEN_NECESSARY);
+	private Entry<K, V> getEntryIfAvailable(@Nullable Object key, Restructure restructure) {
+		Reference<K, V> ref = getReference(key, restructure);
 		return (ref != null ? ref.get() : null);
 	}
 
@@ -263,6 +266,11 @@ public class ConcurrentReferenceHashMap<K, V> extends AbstractMap<K, V> implemen
 	 */
 	@Nullable
 	protected final Reference<K, V> getReference(@Nullable Object key, Restructure restructure) {
+		if (restructure == Restructure.WHEN_NECESSARY) {
+			if (getReferenceCallCount.incrementAndGet() % 40 != 0) {
+				restructure = Restructure.NEVER;
+			}
+		}
 		int hash = getHash(key);
 		return getSegmentForHash(hash).getReference(key, hash, restructure);
 	}
