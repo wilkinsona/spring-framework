@@ -36,6 +36,7 @@ import java.util.function.Function;
 import org.springframework.core.BridgeMethodResolver;
 import org.springframework.core.ResolvableType;
 import org.springframework.core.annotation.MergedAnnotations.SearchStrategy;
+import org.springframework.core.annotation.type.DeclaredAnnotation;
 import org.springframework.core.annotation.type.DeclaredAnnotations;
 import org.springframework.lang.Nullable;
 import org.springframework.util.ClassUtils;
@@ -50,7 +51,12 @@ import org.springframework.util.ConcurrentReferenceHashMap;
  */
 class AnnotationsScanner {
 
-	private static final Map<AnnotatedElement, Results[]> cache = new ConcurrentReferenceHashMap<>();
+	private static final Map<AnnotatedElement, Results[]> resultCache = new ConcurrentReferenceHashMap<>();
+
+	private static final Map<AnnotatedElement, DeclaredAnnotations> declaredAnnotationsCache = new ConcurrentReferenceHashMap<>(
+			256);
+
+	private static final Annotation[] NO_ANNOTATIONS = {};
 
 	private AnnotationsScanner() {
 	}
@@ -62,7 +68,7 @@ class AnnotationsScanner {
 	 * @return a {@link Collection} of {@link DeclaredAnnotations}.
 	 */
 	public static Results scan(AnnotatedElement source, SearchStrategy searchStrategy) {
-		Results[] cached = cache.get(source);
+		Results[] cached = resultCache.get(source);
 		int cacheIndex = searchStrategy.ordinal();
 		if (cached != null && cached[cacheIndex] != null) {
 			return cached[cacheIndex];
@@ -71,7 +77,7 @@ class AnnotationsScanner {
 		if (results != Results.NONE) {
 			if (cached == null) {
 				cached = new Results[SearchStrategy.values().length];
-				cache.put(source, cached);
+				resultCache.put(source, cached);
 			}
 			cached[cacheIndex] = results;
 		}
@@ -89,8 +95,47 @@ class AnnotationsScanner {
 		return ElementAnnotationsScanner.getResults(source, searchStrategy);
 	}
 
+	static DeclaredAnnotations getDeclaredAnnotations(AnnotatedElement element) {
+		return declaredAnnotationsCache.computeIfAbsent(element,
+				AnnotationsScanner::computeDeclaredAnnotations);
+	}
+
+	private static DeclaredAnnotations computeDeclaredAnnotations(
+			AnnotatedElement element) {
+		Annotation[] annotations = element.getDeclaredAnnotations();
+		Annotation[] bridgedMethodAnnotations = getBridgeMethodAnnotations(element);
+		if (Results.isIgnorable(annotations)
+				&& Results.isIgnorable(bridgedMethodAnnotations)) {
+			return DeclaredAnnotations.NONE;
+		}
+		if (bridgedMethodAnnotations.length == 0) {
+			return DeclaredAnnotations.from(element, annotations);
+		}
+		Set<Annotation> merged = new LinkedHashSet<>(
+				annotations.length + bridgedMethodAnnotations.length);
+		for (Annotation annotation : annotations) {
+			merged.add(annotation);
+		}
+		for (Annotation annotation : bridgedMethodAnnotations) {
+			merged.add(annotation);
+		}
+		return DeclaredAnnotations.from(element, merged);
+	}
+
+	private static Annotation[] getBridgeMethodAnnotations(AnnotatedElement element) {
+		if (element instanceof Method) {
+			Method bridgeMethod = BridgeMethodResolver.findBridgedMethod(
+					(Method) element);
+			if (bridgeMethod != element) {
+				return bridgeMethod.getAnnotations();
+			}
+		}
+		return NO_ANNOTATIONS;
+	}
+
 	static void clearCache() {
-		cache.clear();
+		resultCache.clear();
+		declaredAnnotationsCache.clear();
 		TypeHierarchy.superclassesCache.clear();
 		TypeHierarchy.superclassesAndInterfacesCache.clear();
 		MethodAnnotationsScanner.methodsCache.clear();
@@ -125,11 +170,7 @@ class AnnotationsScanner {
 		}
 
 		private static Results getDirect(Class<?> source) {
-			Annotation[] annotations = source.getDeclaredAnnotations();
-			if (Results.isIgnorable(annotations)) {
-				return Results.NONE;
-			}
-			return Results.of(DeclaredAnnotations.from(source, annotations));
+			return Results.of(getDeclaredAnnotations(source));
 		}
 
 		private static Results getInheritedAnnotations(Class<?> source) {
@@ -137,24 +178,28 @@ class AnnotationsScanner {
 			if (Results.isIgnorable(annotations)) {
 				return Results.NONE;
 			}
-			Set<Class<?>> types = getAnnotationTypes(annotations);
+			Set<String> types = getAnnotationTypes(annotations);
 			List<DeclaredAnnotations> aggregates = new ArrayList<>();
 			for (Class<?> type : TypeHierarchy.superclasses(source)) {
-				Set<Annotation> declaredAnnotations = new LinkedHashSet<>(types.size());
-				for (Annotation candidate : type.getDeclaredAnnotations()) {
-					if (types.remove(candidate.annotationType())) {
-						declaredAnnotations.add(candidate);
+				DeclaredAnnotations declaredAnnotations = getDeclaredAnnotations(type);
+				Set<DeclaredAnnotation> relevant = new LinkedHashSet<>(types.size());
+				for (DeclaredAnnotation candidate : declaredAnnotations) {
+					if (types.remove(candidate.getType())) {
+						relevant.add(candidate);
 					}
 				}
-				aggregates.add(DeclaredAnnotations.from(type, declaredAnnotations));
+				if (relevant.size() != declaredAnnotations.size()) {
+					declaredAnnotations = DeclaredAnnotations.of(type, relevant);
+				}
+				aggregates.add(declaredAnnotations);
 			}
 			return Results.of(aggregates);
 		}
 
-		private static Set<Class<?>> getAnnotationTypes(Annotation[] annotations) {
-			Set<Class<?>> types = new HashSet<>(annotations.length);
+		private static Set<String> getAnnotationTypes(Annotation[] annotations) {
+			Set<String> types = new HashSet<>(annotations.length);
 			for (Annotation annotation : annotations) {
-				types.add(annotation.annotationType());
+				types.add(annotation.annotationType().getName());
 			}
 			return types;
 		}
@@ -164,13 +209,7 @@ class AnnotationsScanner {
 			TypeHierarchy hierarchy = hierarchyFactory.apply(source);
 			List<DeclaredAnnotations> aggregates = new ArrayList<>(hierarchy.size());
 			for (Class<?> type : hierarchy) {
-				Annotation[] annotations = type.getDeclaredAnnotations();
-				if (Results.isIgnorable(annotations)) {
-					aggregates.add(DeclaredAnnotations.NONE);
-				}
-				else {
-					aggregates.add(DeclaredAnnotations.from(type, annotations));
-				}
+				aggregates.add(getDeclaredAnnotations(type));
 			}
 			return Results.of(aggregates);
 		}
@@ -183,8 +222,6 @@ class AnnotationsScanner {
 	private static class MethodAnnotationsScanner extends AnnotationsScanner {
 
 		private static final Method[] NO_METHODS = {};
-
-		private static final Annotation[] NO_ANNOTATIONS = {};
 
 		private static final Map<Class<?>, Method[]> methodsCache = new ConcurrentReferenceHashMap<>(
 				256);
@@ -215,7 +252,7 @@ class AnnotationsScanner {
 		}
 
 		private static Results getDirect(Method source) {
-			return Results.of(getAnnotations(source));
+			return Results.of(getDeclaredAnnotations(source));
 		}
 
 		private static Results getWithHierarchy(Class<?> declaringClass, Method source,
@@ -224,51 +261,17 @@ class AnnotationsScanner {
 				return AnnotationsScanner.scan(source, SearchStrategy.DIRECT);
 			}
 			List<DeclaredAnnotations> aggregates = new ArrayList<>();
-			aggregates.add(getAnnotations(source));
+			aggregates.add(getDeclaredAnnotations(source));
 			for (Class<?> candidateClass : hierarchyFactory.apply(declaringClass)) {
 				if (candidateClass != declaringClass) {
 					for (Method candidateMethod : getMethods(candidateClass)) {
 						if (isOverride(source, candidateClass, candidateMethod)) {
-							aggregates.add(getAnnotations(candidateMethod));
+							aggregates.add(getDeclaredAnnotations(candidateMethod));
 						}
 					}
 				}
 			}
 			return Results.of(aggregates);
-		}
-
-		private static DeclaredAnnotations getAnnotations(Method method) {
-			Method bridgedMethod = BridgeMethodResolver.findBridgedMethod(method);
-			Annotation[] methodAnnotations = method.getDeclaredAnnotations();
-			Annotation[] bridgedMethodAnnotations = bridgedMethod != method
-					? bridgedMethod.getDeclaredAnnotations()
-					: NO_ANNOTATIONS;
-			if (hasOnlyIgnorable(methodAnnotations)
-					&& hasOnlyIgnorable(bridgedMethodAnnotations)) {
-				return DeclaredAnnotations.NONE;
-			}
-			Set<Annotation> annotations = new LinkedHashSet<>(
-					methodAnnotations.length + bridgedMethodAnnotations.length);
-			for (Annotation annotation : methodAnnotations) {
-				annotations.add(annotation);
-			}
-			for (Annotation annotation : bridgedMethodAnnotations) {
-				annotations.add(annotation);
-			}
-			return DeclaredAnnotations.from(method, annotations);
-		}
-
-		private static boolean hasOnlyIgnorable(Annotation[] annotations) {
-			for (Annotation annotation : annotations) {
-				if (!isIgnorable(annotation.annotationType())) {
-					return false;
-				}
-			}
-			return true;
-		}
-
-		private static boolean isIgnorable(Class<?> type) {
-			return (type == Nullable.class || type == Deprecated.class);
 		}
 
 		private static Method[] getMethods(Class<?> type) {
@@ -340,7 +343,8 @@ class AnnotationsScanner {
 	}
 
 	/**
-	 * Provides ordered access to the superclass and interface hierarchy of a given class.
+	 * Provides ordered access to the superclass and interface hierarchy of a
+	 * given class.
 	 */
 	private static final class TypeHierarchy implements Iterable<Class<?>> {
 
@@ -389,7 +393,8 @@ class AnnotationsScanner {
 	}
 
 	/**
-	 * A {@link Collection} of {@link DeclaredAnnotations} returned from the scanner.
+	 * A {@link Collection} of {@link DeclaredAnnotations} returned from the
+	 * scanner.
 	 */
 	static final class Results extends AbstractCollection<DeclaredAnnotations> {
 
@@ -421,7 +426,8 @@ class AnnotationsScanner {
 		}
 
 		static boolean isIgnorable(Class<?> type) {
-			return (type == Nullable.class || type == Deprecated.class);
+			return (type == Nullable.class || type == Deprecated.class
+					|| type == FunctionalInterface.class);
 		}
 
 		static Results of(DeclaredAnnotations declaredAnnotations) {
