@@ -398,6 +398,8 @@ class AnnotationsScanner {
 	 */
 	static final class Results extends AbstractCollection<DeclaredAnnotations> {
 
+		// FIXME try unwinding this
+
 		private static final Results NONE = new Results(Collections.emptySet());
 
 		private final Collection<DeclaredAnnotations> values;
