@@ -16,8 +16,7 @@
 
 package org.springframework.core.annotation;
 
-import java.util.HashSet;
-import java.util.Set;
+import java.util.Arrays;
 
 import org.springframework.util.Assert;
 
@@ -30,15 +29,19 @@ import org.springframework.util.Assert;
  */
 class PackagesAnnotationFilter implements AnnotationFilter {
 
-	private final Set<String> prefixes;
+	private final String[] prefixes;
+
+	private final int hashCode;
 
 	PackagesAnnotationFilter(String... packages) {
 		Assert.notNull(packages, "Packages must not be null");
-		this.prefixes = new HashSet<>(packages.length);
+		this.prefixes = new String[packages.length];
 		for (int i = 0; i < packages.length; i++) {
 			Assert.hasText(packages[i], "Package must not have empty elements");
-			this.prefixes.add(packages[i] + ".");
+			this.prefixes[i] = packages[i] + ".";
 		}
+		Arrays.sort(this.prefixes);
+		this.hashCode = Arrays.hashCode(this.prefixes);
 	}
 
 	@Override
@@ -62,12 +65,12 @@ class PackagesAnnotationFilter implements AnnotationFilter {
 			return false;
 		}
 		PackagesAnnotationFilter other = (PackagesAnnotationFilter) obj;
-		return this.prefixes.equals(other.prefixes);
+		return Arrays.equals(this.prefixes, other.prefixes);
 	}
 
 	@Override
 	public int hashCode() {
-		return this.prefixes.hashCode();
+		return this.hashCode;
 	}
 
 }
