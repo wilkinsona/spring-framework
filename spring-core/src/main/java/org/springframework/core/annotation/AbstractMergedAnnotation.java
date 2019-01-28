@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2018 the original author or authors.
+ * Copyright 2002-2019 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -206,7 +206,7 @@ abstract class AbstractMergedAnnotation<A extends Annotation>
 			@Nullable Class<?> expectedType) {
 		AttributeType attributeType = getAttributeType(attributeName, true);
 		Assert.state(!isArrayType(attributeType),
-				"Attribute '" + attributeName + "' is an array type");
+				() -> "Attribute '" + attributeName + "' is an array type");
 		AnnotationType nestedType = resolveAnnotationType(attributeType.getClassName());
 		assertType(attributeName, nestedType, expectedType);
 		DeclaredAttributes nestedAttributes = getRequiredValue(attributeName,
@@ -219,7 +219,7 @@ abstract class AbstractMergedAnnotation<A extends Annotation>
 			String attributeName, @Nullable Class<?> expectedElementType) {
 		AttributeType attributeType = getAttributeType(attributeName, true);
 		Assert.state(isArrayType(attributeType),
-				"Attribute '" + attributeName + "' is not an array type");
+				() -> "Attribute '" + attributeName + "' is not an array type");
 		String arrayType = attributeType.getClassName();
 		String elementType = arrayType.substring(0, arrayType.length() - 2);
 		AnnotationType nestedType = resolveAnnotationType(elementType);
@@ -238,8 +238,9 @@ abstract class AbstractMergedAnnotation<A extends Annotation>
 		if (expectedType != null) {
 			String expectedName = expectedType.getName();
 			String actualName = actualType.getClassName();
-			Assert.state(expectedName.equals(actualName), "Attribute '" + attributeName
-					+ "' is a " + actualName + " and cannot be cast to " + expectedName);
+			Assert.state(expectedName.equals(actualName),
+					() -> "Attribute '" + attributeName + "' is a " + actualName
+							+ " and cannot be cast to " + expectedName);
 		}
 	}
 
@@ -535,11 +536,12 @@ abstract class AbstractMergedAnnotation<A extends Annotation>
 		}
 		Assert.isTrue(isSupportedForExtract(requiredType),
 				() -> "Type " + requiredType.getName() + " is not supported");
+		Object determinedValue = attributeValue;
 		Assert.state(requiredType.isInstance(attributeValue),
-				"Attribute '" + attributeType.getAttributeName() + "' in annotation "
-						+ getType() + " should be of type " + attributeType.getClassName()
-						+ " but a " + attributeValue.getClass().getName()
-						+ " value was returned");
+				() -> "Attribute '" + attributeType.getAttributeName()
+						+ "' in annotation " + getType() + " should be of type "
+						+ attributeType.getClassName() + " but a "
+						+ determinedValue.getClass().getName() + " value was returned");
 		return (T) attributeValue;
 	}
 
