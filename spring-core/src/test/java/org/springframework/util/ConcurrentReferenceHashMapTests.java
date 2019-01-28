@@ -225,8 +225,7 @@ public class ConcurrentReferenceHashMapTests {
 	}
 
 	@Test
-	@Ignore
-	public void shouldPurgeOnEvery40Get() {
+	public void shouldPurgeOnGet() {
 		this.map = new TestWeakConcurrentCache<>(1, 0.75f, 1);
 		for (int i = 1; i <= 5; i++) {
 			this.map.put(i, String.valueOf(i));
@@ -574,16 +573,12 @@ public class ConcurrentReferenceHashMapTests {
 			this.disableTestHooks = disableTestHooks;
 		}
 
-		public TestWeakConcurrentCache(int initialCapacity, int concurrencyLevel) {
-			super(initialCapacity, concurrencyLevel);
-		}
-
 		public TestWeakConcurrentCache(int initialCapacity, float loadFactor, int concurrencyLevel) {
 			super(initialCapacity, loadFactor, concurrencyLevel);
 		}
 
-		public TestWeakConcurrentCache(int initialCapacity, float loadFactor, int concurrencyLevel, int purgeGet) {
-			super(initialCapacity, loadFactor, concurrencyLevel);
+		public TestWeakConcurrentCache(int initialCapacity, int concurrencyLevel) {
+			super(initialCapacity, concurrencyLevel);
 		}
 
 		@Override
