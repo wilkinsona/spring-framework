@@ -21,7 +21,6 @@ import java.lang.reflect.AnnotatedElement;
 import java.lang.reflect.Member;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.Collections;
 import java.util.Deque;
 import java.util.Iterator;
@@ -57,23 +56,16 @@ final class TypeMappedAnnotations extends AbstractMergedAnnotations {
 	}
 
 	private TypeMappedAnnotations(ClassLoader classLoader,
-			Iterable<DeclaredAnnotations> aggregates,
+			List<DeclaredAnnotations> aggregates,
 			RepeatableContainers repeatableContainers,
 			AnnotationFilter annotationFilter) {
-		this.aggregates = new ArrayList<>(getInitialSize(aggregates));
+		this.aggregates = new ArrayList<>(aggregates.size());
 		int aggregateIndex = 0;
 		for (DeclaredAnnotations declaredAnnotations : aggregates) {
 			this.aggregates.add(new MappableAnnotations(classLoader, aggregateIndex,
 					declaredAnnotations, repeatableContainers, annotationFilter));
 			aggregateIndex++;
 		}
-	}
-
-	private int getInitialSize(Iterable<DeclaredAnnotations> aggregates) {
-		if (aggregates instanceof Collection) {
-			return ((Collection<?>) aggregates).size();
-		}
-		return 10;
 	}
 
 	@Override
@@ -158,7 +150,7 @@ final class TypeMappedAnnotations extends AbstractMergedAnnotations {
 		Assert.notNull(annotationFilter, "AnnotationFilter must not be null");
 		Assert.notNull(searchStrategy, "SearchStrategy must not be null");
 		Assert.notNull(element, "Element must not be null");
-		Collection<DeclaredAnnotations> aggregates = AnnotationsScanner.scan(element,
+		List<DeclaredAnnotations> aggregates = AnnotationsScanner.scan(element,
 				searchStrategy);
 		return of(null, aggregates, repeatableContainers, annotationFilter);
 	}
@@ -172,7 +164,7 @@ final class TypeMappedAnnotations extends AbstractMergedAnnotations {
 	}
 
 	static MergedAnnotations of(ClassLoader classLoader,
-			Iterable<DeclaredAnnotations> aggregates,
+			List<DeclaredAnnotations> aggregates,
 			RepeatableContainers repeatableContainers,
 			AnnotationFilter annotationFilter) {
 		if (hasNoAnnotations(aggregates)) {
@@ -182,7 +174,7 @@ final class TypeMappedAnnotations extends AbstractMergedAnnotations {
 				annotationFilter);
 	}
 
-	private static boolean hasNoAnnotations(Iterable<DeclaredAnnotations> aggregates) {
+	private static boolean hasNoAnnotations(List<DeclaredAnnotations> aggregates) {
 		for (DeclaredAnnotations annotations : aggregates) {
 			if (annotations != DeclaredAnnotations.NONE) {
 				return false;

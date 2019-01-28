@@ -20,6 +20,7 @@ import java.lang.annotation.Annotation;
 import java.lang.annotation.Inherited;
 import java.lang.reflect.AnnotatedElement;
 import java.lang.reflect.Method;
+import java.util.List;
 import java.util.Set;
 import java.util.function.Predicate;
 import java.util.stream.Stream;
@@ -386,7 +387,7 @@ public interface MergedAnnotations extends Iterable<MergedAnnotation<Annotation>
 	 * @return a {@link MergedAnnotations} instance containing the merged
 	 * annotations
 	 */
-	static MergedAnnotations of(Iterable<DeclaredAnnotations> aggregates,
+	static MergedAnnotations of(List<DeclaredAnnotations> aggregates,
 			RepeatableContainers repeatableContainers,
 			AnnotationFilter annotationFilter) {
 		return of(null, aggregates, repeatableContainers, annotationFilter);
@@ -408,7 +409,7 @@ public interface MergedAnnotations extends Iterable<MergedAnnotation<Annotation>
 	 * annotations
 	 */
 	static MergedAnnotations of(@Nullable ClassLoader classLoader,
-			Iterable<DeclaredAnnotations> aggregates,
+			List<DeclaredAnnotations> aggregates,
 			RepeatableContainers repeatableContainers,
 			AnnotationFilter annotationFilter) {
 		return TypeMappedAnnotations.of(classLoader, aggregates, repeatableContainers,

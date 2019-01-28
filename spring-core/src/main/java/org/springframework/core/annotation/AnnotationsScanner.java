@@ -20,7 +20,7 @@ import java.lang.annotation.Annotation;
 import java.lang.reflect.AnnotatedElement;
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
-import java.util.AbstractCollection;
+import java.util.AbstractList;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
@@ -374,16 +374,19 @@ class AnnotationsScanner {
 	 * A {@link Collection} of {@link DeclaredAnnotations} returned from the
 	 * scanner.
 	 */
-	static final class Results extends AbstractCollection<DeclaredAnnotations> {
+	static final class Results extends AbstractList<DeclaredAnnotations> {
 
-		// FIXME try unwinding this
+		private static final Results NONE = new Results(Collections.emptyList());
 
-		private static final Results NONE = new Results(Collections.emptySet());
+		private final List<DeclaredAnnotations> values;
 
-		private final Collection<DeclaredAnnotations> values;
-
-		private Results(Collection<DeclaredAnnotations> values) {
+		private Results(List<DeclaredAnnotations> values) {
 			this.values = values;
+		}
+
+		@Override
+		public DeclaredAnnotations get(int index) {
+			return this.values.get(index);
 		}
 
 		@Override
@@ -414,13 +417,13 @@ class AnnotationsScanner {
 			if (declaredAnnotations == DeclaredAnnotations.NONE) {
 				return NONE;
 			}
-			return new Results(Collections.singleton(declaredAnnotations));
+			return new Results(Collections.singletonList(declaredAnnotations));
 		}
 
-		static Results of(Collection<DeclaredAnnotations> aggregates) {
+		static Results of(List<DeclaredAnnotations> aggregates) {
 			for (DeclaredAnnotations annotations : aggregates) {
 				if (annotations != DeclaredAnnotations.NONE) {
-					return new Results(Collections.unmodifiableCollection(aggregates));
+					return new Results(Collections.unmodifiableList(aggregates));
 				}
 			}
 			return NONE;
