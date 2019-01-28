@@ -99,12 +99,25 @@ class AnnotationsScanner {
 				AnnotationsScanner::computeDeclaredAnnotations);
 	}
 
+	static boolean isIgnorable(Annotation[] annotations) {
+		for (Annotation annotation : annotations) {
+			if (!isIgnorable(annotation.annotationType())) {
+				return false;
+			}
+		}
+		return true;
+	}
+
+	static boolean isIgnorable(Class<?> type) {
+		return (type == Nullable.class || type == Deprecated.class
+				|| type == FunctionalInterface.class);
+	}
+
 	private static DeclaredAnnotations computeDeclaredAnnotations(
 			AnnotatedElement element) {
 		Annotation[] annotations = element.getDeclaredAnnotations();
 		Annotation[] bridgedMethodAnnotations = getBridgeMethodAnnotations(element);
-		if (Results.isIgnorable(annotations)
-				&& Results.isIgnorable(bridgedMethodAnnotations)) {
+		if (isIgnorable(annotations) && isIgnorable(bridgedMethodAnnotations)) {
 			return DeclaredAnnotations.NONE;
 		}
 		if (bridgedMethodAnnotations.length == 0) {
@@ -171,7 +184,7 @@ class AnnotationsScanner {
 
 		private static Results getInheritedAnnotations(Class<?> source) {
 			Annotation[] annotations = source.getAnnotations();
-			if (Results.isIgnorable(annotations)) {
+			if (isIgnorable(annotations)) {
 				return Results.NONE;
 			}
 			Set<String> types = getAnnotationTypes(annotations);
@@ -397,20 +410,6 @@ class AnnotationsScanner {
 		@Override
 		public int size() {
 			return this.values.size();
-		}
-
-		static boolean isIgnorable(Annotation[] annotations) {
-			for (Annotation annotation : annotations) {
-				if (!isIgnorable(annotation.annotationType())) {
-					return false;
-				}
-			}
-			return true;
-		}
-
-		static boolean isIgnorable(Class<?> type) {
-			return (type == Nullable.class || type == Deprecated.class
-					|| type == FunctionalInterface.class);
 		}
 
 		static Results of(DeclaredAnnotations declaredAnnotations) {
