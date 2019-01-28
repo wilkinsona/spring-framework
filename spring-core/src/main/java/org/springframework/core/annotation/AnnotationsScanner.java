@@ -20,13 +20,11 @@ import java.lang.annotation.Annotation;
 import java.lang.reflect.AnnotatedElement;
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
-import java.util.AbstractList;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashSet;
-import java.util.Iterator;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
@@ -74,7 +72,7 @@ class AnnotationsScanner {
 			return (List<DeclaredAnnotations>) cached[cacheIndex];
 		}
 		List<DeclaredAnnotations> results = getResults(source, searchStrategy);
-		if (results != Results.NONE) {
+		if (!results.isEmpty()) {
 			if (cached == null) {
 				cached = new Object[SearchStrategy.values().length];
 				resultCache.put(source, cached);
@@ -112,6 +110,13 @@ class AnnotationsScanner {
 	static boolean isIgnorable(Class<?> type) {
 		return (type == Nullable.class || type == Deprecated.class
 				|| type == FunctionalInterface.class);
+	}
+
+	static List<DeclaredAnnotations> asList(DeclaredAnnotations declaredAnnotations) {
+		if (declaredAnnotations == DeclaredAnnotations.NONE) {
+			return Collections.emptyList();
+		}
+		return Collections.singletonList(declaredAnnotations);
 	}
 
 	private static DeclaredAnnotations computeDeclaredAnnotations(
@@ -180,13 +185,13 @@ class AnnotationsScanner {
 		}
 
 		private static List<DeclaredAnnotations> getDirect(Class<?> source) {
-			return Results.of(getDeclaredAnnotations(source));
+			return asList(getDeclaredAnnotations(source));
 		}
 
 		private static List<DeclaredAnnotations> getInheritedAnnotations(Class<?> source) {
 			Annotation[] annotations = source.getAnnotations();
 			if (isIgnorable(annotations)) {
-				return Results.NONE;
+				return Collections.emptyList();
 			}
 			Set<String> types = getAnnotationTypes(annotations);
 			List<DeclaredAnnotations> aggregates = new ArrayList<>();
@@ -204,7 +209,7 @@ class AnnotationsScanner {
 				aggregates.add(declaredAnnotations);
 				source = source.getSuperclass();
 			}
-			return Results.of(aggregates);
+			return aggregates;
 		}
 
 		private static Set<String> getAnnotationTypes(Annotation[] annotations) {
@@ -218,13 +223,13 @@ class AnnotationsScanner {
 		private static List<DeclaredAnnotations> getSuperclass(Class<?> source) {
 			List<DeclaredAnnotations> aggregates = new ArrayList<>();
 			collect(aggregates, source, false);
-			return Results.of(aggregates);
+			return aggregates;
 		}
 
 		private static List<DeclaredAnnotations> getExhaustive(Class<?> source) {
 			List<DeclaredAnnotations> aggregates = new ArrayList<>();
 			collect(aggregates, source, true);
-			return Results.of(aggregates);
+			return aggregates;
 		}
 
 		private static void collect(List<DeclaredAnnotations> aggregates, Class<?> type,
@@ -278,21 +283,21 @@ class AnnotationsScanner {
 		}
 
 		private static List<DeclaredAnnotations> getDirect(Method source) {
-			return Results.of(getDeclaredAnnotations(source));
+			return asList(getDeclaredAnnotations(source));
 		}
 
 		private static List<DeclaredAnnotations> getSuperclass(Method source, Class<?> declaringClass) {
 			List<DeclaredAnnotations> aggregates = new ArrayList<>();
 			aggregates.add(getDeclaredAnnotations(source));
 			collect(aggregates, source, declaringClass, false, false);
-			return Results.of(aggregates);
+			return aggregates;
 		}
 
 		private static List<DeclaredAnnotations> getExhaustive(Method source, Class<?> declaringClass) {
 			List<DeclaredAnnotations> aggregates = new ArrayList<>();
 			aggregates.add(getDeclaredAnnotations(source));
 			collect(aggregates, source, declaringClass, false, true);
-			return Results.of(aggregates);
+			return aggregates;
 		}
 
 		private static void collect(List<DeclaredAnnotations> aggregates, Method source,
@@ -376,57 +381,10 @@ class AnnotationsScanner {
 				return AnnotationsScanner.scan(source, SearchStrategy.DIRECT);
 			}
 			Annotation[] annotations = source.getDeclaredAnnotations();
-			if (annotations.length != 0) {
-				return Results.of(DeclaredAnnotations.from(source, annotations));
+			if (annotations.length == 0) {
+				return Collections.emptyList();
 			}
-			return Results.NONE;
-		}
-
-	}
-
-	/**
-	 * A {@link Collection} of {@link DeclaredAnnotations} returned from the
-	 * scanner.
-	 */
-	static final class Results extends AbstractList<DeclaredAnnotations> {
-
-		private static final Results NONE = new Results(Collections.emptyList());
-
-		private final List<DeclaredAnnotations> values;
-
-		private Results(List<DeclaredAnnotations> values) {
-			this.values = values;
-		}
-
-		@Override
-		public DeclaredAnnotations get(int index) {
-			return this.values.get(index);
-		}
-
-		@Override
-		public Iterator<DeclaredAnnotations> iterator() {
-			return this.values.iterator();
-		}
-
-		@Override
-		public int size() {
-			return this.values.size();
-		}
-
-		static List<DeclaredAnnotations> of(DeclaredAnnotations declaredAnnotations) {
-			if (declaredAnnotations == DeclaredAnnotations.NONE) {
-				return NONE;
-			}
-			return Collections.singletonList(declaredAnnotations);
-		}
-
-		static List<DeclaredAnnotations> of(List<DeclaredAnnotations> aggregates) {
-			for (DeclaredAnnotations annotations : aggregates) {
-				if (annotations != DeclaredAnnotations.NONE) {
-					return  aggregates;
-				}
-			}
-			return NONE;
+			return asList(DeclaredAnnotations.from(source, annotations));
 		}
 
 	}
