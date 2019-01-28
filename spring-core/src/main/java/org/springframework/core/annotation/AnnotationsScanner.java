@@ -48,11 +48,6 @@ import org.springframework.util.ConcurrentReferenceHashMap;
  */
 class AnnotationsScanner {
 
-	private static Results cachedLastResult = null;
-
-//	private static final Map<AnnotatedElement, DeclaredAnnotations> declaredAnnotationsCache = new ConcurrentReferenceHashMap<>(
-//			256);
-
 	private static final Annotation[] NO_ANNOTATIONS = {};
 
 	private AnnotationsScanner() {
@@ -65,17 +60,6 @@ class AnnotationsScanner {
 	 * @return a {@link Collection} of {@link DeclaredAnnotations}.
 	 */
 	public static List<DeclaredAnnotations> scan(AnnotatedElement source,
-			SearchStrategy searchStrategy) {
-		Results lastResult = cachedLastResult;
-		if (lastResult != null && lastResult.isFor(source, searchStrategy)) {
-			return lastResult.getResults();
-		}
-		List<DeclaredAnnotations> results = getResults(source, searchStrategy);
-		cachedLastResult = new Results(source, searchStrategy, results);
-		return results;
-	}
-
-	private static List<DeclaredAnnotations> getResults(AnnotatedElement source,
 			SearchStrategy searchStrategy) {
 		if (source instanceof Class) {
 			return ClassAnnotationsScanner.getResults((Class<?>) source, searchStrategy);
@@ -139,7 +123,6 @@ class AnnotationsScanner {
 	}
 
 	static void clearCache() {
-		cachedLastResult = null;
 		MethodAnnotationsScanner.methodsCache.clear();
 	}
 
@@ -376,31 +359,6 @@ class AnnotationsScanner {
 				return Collections.emptyList();
 			}
 			return asList(DeclaredAnnotations.from(source, annotations));
-		}
-
-	}
-
-	private static class Results {
-
-		private final AnnotatedElement source;
-
-		private final SearchStrategy searchStrategy;
-
-		private final List<DeclaredAnnotations> results;
-
-		Results(AnnotatedElement source, SearchStrategy searchStrategy,
-				List<DeclaredAnnotations> results) {
-			this.source = source;
-			this.searchStrategy = searchStrategy;
-			this.results = results;
-		}
-
-		public boolean isFor(AnnotatedElement source, SearchStrategy searchStrategy) {
-			return this.source == source && this.searchStrategy == searchStrategy;
-		}
-
-		public List<DeclaredAnnotations> getResults() {
-			return this.results;
 		}
 
 	}
