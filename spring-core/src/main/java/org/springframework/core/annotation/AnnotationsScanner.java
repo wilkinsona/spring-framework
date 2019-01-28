@@ -48,7 +48,7 @@ import org.springframework.util.ConcurrentReferenceHashMap;
  */
 class AnnotationsScanner {
 
-	private static final Map<AnnotatedElement, Object[]> resultCache = new ConcurrentReferenceHashMap<>();
+	private static Results cachedLastResult = null;
 
 	private static final Map<AnnotatedElement, DeclaredAnnotations> declaredAnnotationsCache = new ConcurrentReferenceHashMap<>(
 			256);
@@ -64,21 +64,14 @@ class AnnotationsScanner {
 	 * @param searchStrategy the search strategy to use
 	 * @return a {@link Collection} of {@link DeclaredAnnotations}.
 	 */
-	@SuppressWarnings("unchecked")
-	public static List<DeclaredAnnotations> scan(AnnotatedElement source, SearchStrategy searchStrategy) {
-		Object[] cached = resultCache.get(source);
-		int cacheIndex = searchStrategy.ordinal();
-		if (cached != null && cached[cacheIndex] != null) {
-			return (List<DeclaredAnnotations>) cached[cacheIndex];
+	public static List<DeclaredAnnotations> scan(AnnotatedElement source,
+			SearchStrategy searchStrategy) {
+		Results lastResult = cachedLastResult;
+		if (lastResult != null && lastResult.isFor(source, searchStrategy)) {
+			return lastResult.getResults();
 		}
 		List<DeclaredAnnotations> results = getResults(source, searchStrategy);
-		if (!results.isEmpty()) {
-			if (cached == null) {
-				cached = new Object[SearchStrategy.values().length];
-				resultCache.put(source, cached);
-			}
-			cached[cacheIndex] = results;
-		}
+		cachedLastResult = new Results(source, searchStrategy, results);
 		return results;
 	}
 
@@ -152,7 +145,7 @@ class AnnotationsScanner {
 	}
 
 	static void clearCache() {
-		resultCache.clear();
+		// resultCache.clear();
 		declaredAnnotationsCache.clear();
 		MethodAnnotationsScanner.methodsCache.clear();
 	}
@@ -162,7 +155,8 @@ class AnnotationsScanner {
 	 */
 	private static class ClassAnnotationsScanner {
 
-		public static List<DeclaredAnnotations> getResults(Class<?> source, SearchStrategy searchStrategy) {
+		public static List<DeclaredAnnotations> getResults(Class<?> source,
+				SearchStrategy searchStrategy) {
 			switch (searchStrategy) {
 				case DIRECT:
 					return getDirect(source);
@@ -188,7 +182,8 @@ class AnnotationsScanner {
 			return asList(getDeclaredAnnotations(source));
 		}
 
-		private static List<DeclaredAnnotations> getInheritedAnnotations(Class<?> source) {
+		private static List<DeclaredAnnotations> getInheritedAnnotations(
+				Class<?> source) {
 			Annotation[] annotations = source.getAnnotations();
 			if (isIgnorable(annotations)) {
 				return Collections.emptyList();
@@ -258,7 +253,8 @@ class AnnotationsScanner {
 		private static final Map<Class<?>, Method[]> methodsCache = new ConcurrentReferenceHashMap<>(
 				256);
 
-		static List<DeclaredAnnotations> getResults(Method source, SearchStrategy searchStrategy) {
+		static List<DeclaredAnnotations> getResults(Method source,
+				SearchStrategy searchStrategy) {
 			Class<?> declaringClass = source.getDeclaringClass();
 			boolean privateMethod = Modifier.isPrivate(source.getModifiers());
 			switch (searchStrategy) {
@@ -286,14 +282,16 @@ class AnnotationsScanner {
 			return asList(getDeclaredAnnotations(source));
 		}
 
-		private static List<DeclaredAnnotations> getSuperclass(Method source, Class<?> declaringClass) {
+		private static List<DeclaredAnnotations> getSuperclass(Method source,
+				Class<?> declaringClass) {
 			List<DeclaredAnnotations> aggregates = new ArrayList<>();
 			aggregates.add(getDeclaredAnnotations(source));
 			collect(aggregates, source, declaringClass, false, false);
 			return aggregates;
 		}
 
-		private static List<DeclaredAnnotations> getExhaustive(Method source, Class<?> declaringClass) {
+		private static List<DeclaredAnnotations> getExhaustive(Method source,
+				Class<?> declaringClass) {
 			List<DeclaredAnnotations> aggregates = new ArrayList<>();
 			aggregates.add(getDeclaredAnnotations(source));
 			collect(aggregates, source, declaringClass, false, true);
@@ -385,6 +383,31 @@ class AnnotationsScanner {
 				return Collections.emptyList();
 			}
 			return asList(DeclaredAnnotations.from(source, annotations));
+		}
+
+	}
+
+	private static class Results {
+
+		private final AnnotatedElement source;
+
+		private final SearchStrategy searchStrategy;
+
+		private final List<DeclaredAnnotations> results;
+
+		Results(AnnotatedElement source, SearchStrategy searchStrategy,
+				List<DeclaredAnnotations> results) {
+			this.source = source;
+			this.searchStrategy = searchStrategy;
+			this.results = results;
+		}
+
+		public boolean isFor(AnnotatedElement source, SearchStrategy searchStrategy) {
+			return this.source == source && this.searchStrategy == searchStrategy;
+		}
+
+		public List<DeclaredAnnotations> getResults() {
+			return this.results;
 		}
 
 	}
