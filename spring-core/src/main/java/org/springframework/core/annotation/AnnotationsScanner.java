@@ -31,7 +31,6 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.function.Function;
 
 import org.springframework.core.BridgeMethodResolver;
 import org.springframework.core.ResolvableType;
@@ -136,8 +135,6 @@ class AnnotationsScanner {
 	static void clearCache() {
 		resultCache.clear();
 		declaredAnnotationsCache.clear();
-		TypeHierarchy.superclassesCache.clear();
-		TypeHierarchy.superclassesAndInterfacesCache.clear();
 		MethodAnnotationsScanner.methodsCache.clear();
 	}
 
@@ -156,14 +153,13 @@ class AnnotationsScanner {
 					if (source.getSuperclass() == Object.class) {
 						return getDirect(source);
 					}
-					return getWithHierarchy(source, TypeHierarchy::superclasses);
+					return getSuperclass(source);
 				case EXHAUSTIVE:
 					if (source.getSuperclass() == Object.class
 							&& source.getInterfaces().length == 0) {
 						return getDirect(source);
 					}
-					return getWithHierarchy(source,
-							TypeHierarchy::superclassesAndInterfaces);
+					return getExhaustive(source);
 			}
 			throw new IllegalStateException(
 					"Unsupported search strategy " + searchStrategy);
@@ -180,8 +176,8 @@ class AnnotationsScanner {
 			}
 			Set<String> types = getAnnotationTypes(annotations);
 			List<DeclaredAnnotations> aggregates = new ArrayList<>();
-			for (Class<?> type : TypeHierarchy.superclasses(source)) {
-				DeclaredAnnotations declaredAnnotations = getDeclaredAnnotations(type);
+			while (source != null && source != Object.class) {
+				DeclaredAnnotations declaredAnnotations = getDeclaredAnnotations(source);
 				Set<DeclaredAnnotation> relevant = new LinkedHashSet<>(types.size());
 				for (DeclaredAnnotation candidate : declaredAnnotations) {
 					if (types.remove(candidate.getType())) {
@@ -189,9 +185,10 @@ class AnnotationsScanner {
 					}
 				}
 				if (relevant.size() != declaredAnnotations.size()) {
-					declaredAnnotations = DeclaredAnnotations.of(type, relevant);
+					declaredAnnotations = DeclaredAnnotations.of(source, relevant);
 				}
 				aggregates.add(declaredAnnotations);
+				source = source.getSuperclass();
 			}
 			return Results.of(aggregates);
 		}
@@ -204,14 +201,30 @@ class AnnotationsScanner {
 			return types;
 		}
 
-		private static Results getWithHierarchy(Class<?> source,
-				Function<Class<?>, TypeHierarchy> hierarchyFactory) {
-			TypeHierarchy hierarchy = hierarchyFactory.apply(source);
-			List<DeclaredAnnotations> aggregates = new ArrayList<>(hierarchy.size());
-			for (Class<?> type : hierarchy) {
-				aggregates.add(getDeclaredAnnotations(type));
-			}
+		private static Results getSuperclass(Class<?> source) {
+			List<DeclaredAnnotations> aggregates = new ArrayList<>();
+			collect(aggregates, source, false);
 			return Results.of(aggregates);
+		}
+
+		private static Results getExhaustive(Class<?> source) {
+			List<DeclaredAnnotations> aggregates = new ArrayList<>();
+			collect(aggregates, source, true);
+			return Results.of(aggregates);
+		}
+
+		private static void collect(List<DeclaredAnnotations> aggregates, Class<?> type,
+				boolean includeInterfaces) {
+			aggregates.add(getDeclaredAnnotations(type));
+			Class<?> superclass = type.getSuperclass();
+			if (superclass != Object.class && superclass != null) {
+				collect(aggregates, superclass, includeInterfaces);
+			}
+			if (includeInterfaces) {
+				for (Class<?> interfaceType : type.getInterfaces()) {
+					collect(aggregates, interfaceType, includeInterfaces);
+				}
+			}
 		}
 
 	}
@@ -228,24 +241,23 @@ class AnnotationsScanner {
 
 		static Results getResults(Method source, SearchStrategy searchStrategy) {
 			Class<?> declaringClass = source.getDeclaringClass();
+			boolean privateMethod = Modifier.isPrivate(source.getModifiers());
 			switch (searchStrategy) {
 				case DIRECT:
 					return getDirect(source);
 				case INHERITED_ANNOTATIONS:
 					return AnnotationsScanner.scan(source, SearchStrategy.DIRECT);
 				case SUPER_CLASS:
-					if (declaringClass.getSuperclass() == Object.class) {
+					if (privateMethod || declaringClass.getSuperclass() == Object.class) {
 						return getDirect(source);
 					}
-					return getWithHierarchy(declaringClass, source,
-							TypeHierarchy::superclasses);
+					return getSuperclass(source, declaringClass);
 				case EXHAUSTIVE:
-					if (declaringClass.getSuperclass() == Object.class
-							&& declaringClass.getInterfaces().length == 0) {
+					if (privateMethod || (declaringClass.getSuperclass() == Object.class
+							&& declaringClass.getInterfaces().length == 0)) {
 						return getDirect(source);
 					}
-					return getWithHierarchy(declaringClass, source,
-							TypeHierarchy::superclassesAndInterfaces);
+					return getExhaustive(source, declaringClass);
 			}
 			throw new IllegalStateException(
 					"Unsupported search strategy " + searchStrategy);
@@ -255,23 +267,39 @@ class AnnotationsScanner {
 			return Results.of(getDeclaredAnnotations(source));
 		}
 
-		private static Results getWithHierarchy(Class<?> declaringClass, Method source,
-				Function<Class<?>, TypeHierarchy> hierarchyFactory) {
-			if (Modifier.isPrivate(source.getModifiers())) {
-				return AnnotationsScanner.scan(source, SearchStrategy.DIRECT);
-			}
+		private static Results getSuperclass(Method source, Class<?> declaringClass) {
 			List<DeclaredAnnotations> aggregates = new ArrayList<>();
 			aggregates.add(getDeclaredAnnotations(source));
-			for (Class<?> candidateClass : hierarchyFactory.apply(declaringClass)) {
-				if (candidateClass != declaringClass) {
-					for (Method candidateMethod : getMethods(candidateClass)) {
-						if (isOverride(source, candidateClass, candidateMethod)) {
-							aggregates.add(getDeclaredAnnotations(candidateMethod));
-						}
+			collect(aggregates, source, declaringClass, false, false);
+			return Results.of(aggregates);
+		}
+
+		private static Results getExhaustive(Method source, Class<?> declaringClass) {
+			List<DeclaredAnnotations> aggregates = new ArrayList<>();
+			aggregates.add(getDeclaredAnnotations(source));
+			collect(aggregates, source, declaringClass, false, true);
+			return Results.of(aggregates);
+		}
+
+		private static void collect(List<DeclaredAnnotations> aggregates, Method source,
+				Class<?> candidateClass, boolean searchMethods,
+				boolean includeInterfaces) {
+			if (searchMethods) {
+				for (Method candidateMethod : getMethods(candidateClass)) {
+					if (isOverride(source, candidateClass, candidateMethod)) {
+						aggregates.add(getDeclaredAnnotations(candidateMethod));
 					}
 				}
 			}
-			return Results.of(aggregates);
+			Class<?> superclass = candidateClass.getSuperclass();
+			if (superclass != Object.class && superclass != null) {
+				collect(aggregates, source, superclass, true, includeInterfaces);
+			}
+			if (includeInterfaces) {
+				for (Class<?> interfaceType : candidateClass.getInterfaces()) {
+					collect(aggregates, source, interfaceType, true, includeInterfaces);
+				}
+			}
 		}
 
 		private static Method[] getMethods(Class<?> type) {
@@ -338,56 +366,6 @@ class AnnotationsScanner {
 				return Results.of(DeclaredAnnotations.from(source, annotations));
 			}
 			return Results.NONE;
-		}
-
-	}
-
-	/**
-	 * Provides ordered access to the superclass and interface hierarchy of a
-	 * given class.
-	 */
-	private static final class TypeHierarchy implements Iterable<Class<?>> {
-
-		private static final Map<Class<?>, TypeHierarchy> superclassesCache = new ConcurrentReferenceHashMap<>();
-
-		private static final Map<Class<?>, TypeHierarchy> superclassesAndInterfacesCache = new ConcurrentReferenceHashMap<>();
-
-		private final Set<Class<?>> hierarchy = new LinkedHashSet<>();
-
-		private TypeHierarchy(Class<?> type, boolean includeInterfaces) {
-			collect(type, includeInterfaces);
-		}
-
-		private void collect(Class<?> type, boolean includeInterfaces) {
-			if (type == null || Object.class.equals(type)) {
-				return;
-			}
-			this.hierarchy.add(type);
-			collect(type.getSuperclass(), includeInterfaces);
-			if (includeInterfaces) {
-				for (Class<?> interfaceType : type.getInterfaces()) {
-					collect(interfaceType, includeInterfaces);
-				}
-			}
-		}
-
-		@Override
-		public Iterator<Class<?>> iterator() {
-			return this.hierarchy.iterator();
-		}
-
-		public int size() {
-			return this.hierarchy.size();
-		}
-
-		public static TypeHierarchy superclasses(Class<?> type) {
-			return superclassesCache.computeIfAbsent(type,
-					key -> new TypeHierarchy(type, false));
-		}
-
-		public static TypeHierarchy superclassesAndInterfaces(Class<?> type) {
-			return superclassesAndInterfacesCache.computeIfAbsent(type,
-					key -> new TypeHierarchy(type, true));
 		}
 
 	}
