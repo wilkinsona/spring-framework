@@ -50,8 +50,8 @@ class AnnotationsScanner {
 
 	private static Results cachedLastResult = null;
 
-	private static final Map<AnnotatedElement, DeclaredAnnotations> declaredAnnotationsCache = new ConcurrentReferenceHashMap<>(
-			256);
+//	private static final Map<AnnotatedElement, DeclaredAnnotations> declaredAnnotationsCache = new ConcurrentReferenceHashMap<>(
+//			256);
 
 	private static final Annotation[] NO_ANNOTATIONS = {};
 
@@ -87,8 +87,23 @@ class AnnotationsScanner {
 	}
 
 	static DeclaredAnnotations getDeclaredAnnotations(AnnotatedElement element) {
-		return declaredAnnotationsCache.computeIfAbsent(element,
-				AnnotationsScanner::computeDeclaredAnnotations);
+		Annotation[] annotations = element.getDeclaredAnnotations();
+		Annotation[] bridgedMethodAnnotations = getBridgeMethodAnnotations(element);
+		if (isIgnorable(annotations) && isIgnorable(bridgedMethodAnnotations)) {
+			return DeclaredAnnotations.NONE;
+		}
+		if (bridgedMethodAnnotations.length == 0) {
+			return DeclaredAnnotations.from(element, annotations);
+		}
+		Set<Annotation> merged = new LinkedHashSet<>(
+				annotations.length + bridgedMethodAnnotations.length);
+		for (Annotation annotation : annotations) {
+			merged.add(annotation);
+		}
+		for (Annotation annotation : bridgedMethodAnnotations) {
+			merged.add(annotation);
+		}
+		return DeclaredAnnotations.from(element, merged);
 	}
 
 	static boolean isIgnorable(Annotation[] annotations) {
@@ -112,27 +127,6 @@ class AnnotationsScanner {
 		return Collections.singletonList(declaredAnnotations);
 	}
 
-	private static DeclaredAnnotations computeDeclaredAnnotations(
-			AnnotatedElement element) {
-		Annotation[] annotations = element.getDeclaredAnnotations();
-		Annotation[] bridgedMethodAnnotations = getBridgeMethodAnnotations(element);
-		if (isIgnorable(annotations) && isIgnorable(bridgedMethodAnnotations)) {
-			return DeclaredAnnotations.NONE;
-		}
-		if (bridgedMethodAnnotations.length == 0) {
-			return DeclaredAnnotations.from(element, annotations);
-		}
-		Set<Annotation> merged = new LinkedHashSet<>(
-				annotations.length + bridgedMethodAnnotations.length);
-		for (Annotation annotation : annotations) {
-			merged.add(annotation);
-		}
-		for (Annotation annotation : bridgedMethodAnnotations) {
-			merged.add(annotation);
-		}
-		return DeclaredAnnotations.from(element, merged);
-	}
-
 	private static Annotation[] getBridgeMethodAnnotations(AnnotatedElement element) {
 		if (element instanceof Method) {
 			Method bridgeMethod = BridgeMethodResolver.findBridgedMethod(
@@ -145,8 +139,7 @@ class AnnotationsScanner {
 	}
 
 	static void clearCache() {
-		// resultCache.clear();
-		declaredAnnotationsCache.clear();
+		cachedLastResult = null;
 		MethodAnnotationsScanner.methodsCache.clear();
 	}
 
