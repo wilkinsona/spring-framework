@@ -50,7 +50,7 @@ import org.springframework.util.ConcurrentReferenceHashMap;
  */
 class AnnotationsScanner {
 
-	private static final Map<AnnotatedElement, Results[]> resultCache = new ConcurrentReferenceHashMap<>();
+	private static final Map<AnnotatedElement, Object[]> resultCache = new ConcurrentReferenceHashMap<>();
 
 	private static final Map<AnnotatedElement, DeclaredAnnotations> declaredAnnotationsCache = new ConcurrentReferenceHashMap<>(
 			256);
@@ -66,16 +66,17 @@ class AnnotationsScanner {
 	 * @param searchStrategy the search strategy to use
 	 * @return a {@link Collection} of {@link DeclaredAnnotations}.
 	 */
-	public static Results scan(AnnotatedElement source, SearchStrategy searchStrategy) {
-		Results[] cached = resultCache.get(source);
+	@SuppressWarnings("unchecked")
+	public static List<DeclaredAnnotations> scan(AnnotatedElement source, SearchStrategy searchStrategy) {
+		Object[] cached = resultCache.get(source);
 		int cacheIndex = searchStrategy.ordinal();
 		if (cached != null && cached[cacheIndex] != null) {
-			return cached[cacheIndex];
+			return (List<DeclaredAnnotations>) cached[cacheIndex];
 		}
-		Results results = getResults(source, searchStrategy);
+		List<DeclaredAnnotations> results = getResults(source, searchStrategy);
 		if (results != Results.NONE) {
 			if (cached == null) {
-				cached = new Results[SearchStrategy.values().length];
+				cached = new Object[SearchStrategy.values().length];
 				resultCache.put(source, cached);
 			}
 			cached[cacheIndex] = results;
@@ -83,7 +84,7 @@ class AnnotationsScanner {
 		return results;
 	}
 
-	private static Results getResults(AnnotatedElement source,
+	private static List<DeclaredAnnotations> getResults(AnnotatedElement source,
 			SearchStrategy searchStrategy) {
 		if (source instanceof Class) {
 			return ClassAnnotationsScanner.getResults((Class<?>) source, searchStrategy);
@@ -156,7 +157,7 @@ class AnnotationsScanner {
 	 */
 	private static class ClassAnnotationsScanner {
 
-		public static Results getResults(Class<?> source, SearchStrategy searchStrategy) {
+		public static List<DeclaredAnnotations> getResults(Class<?> source, SearchStrategy searchStrategy) {
 			switch (searchStrategy) {
 				case DIRECT:
 					return getDirect(source);
@@ -178,11 +179,11 @@ class AnnotationsScanner {
 					"Unsupported search strategy " + searchStrategy);
 		}
 
-		private static Results getDirect(Class<?> source) {
+		private static List<DeclaredAnnotations> getDirect(Class<?> source) {
 			return Results.of(getDeclaredAnnotations(source));
 		}
 
-		private static Results getInheritedAnnotations(Class<?> source) {
+		private static List<DeclaredAnnotations> getInheritedAnnotations(Class<?> source) {
 			Annotation[] annotations = source.getAnnotations();
 			if (isIgnorable(annotations)) {
 				return Results.NONE;
@@ -214,13 +215,13 @@ class AnnotationsScanner {
 			return types;
 		}
 
-		private static Results getSuperclass(Class<?> source) {
+		private static List<DeclaredAnnotations> getSuperclass(Class<?> source) {
 			List<DeclaredAnnotations> aggregates = new ArrayList<>();
 			collect(aggregates, source, false);
 			return Results.of(aggregates);
 		}
 
-		private static Results getExhaustive(Class<?> source) {
+		private static List<DeclaredAnnotations> getExhaustive(Class<?> source) {
 			List<DeclaredAnnotations> aggregates = new ArrayList<>();
 			collect(aggregates, source, true);
 			return Results.of(aggregates);
@@ -252,7 +253,7 @@ class AnnotationsScanner {
 		private static final Map<Class<?>, Method[]> methodsCache = new ConcurrentReferenceHashMap<>(
 				256);
 
-		static Results getResults(Method source, SearchStrategy searchStrategy) {
+		static List<DeclaredAnnotations> getResults(Method source, SearchStrategy searchStrategy) {
 			Class<?> declaringClass = source.getDeclaringClass();
 			boolean privateMethod = Modifier.isPrivate(source.getModifiers());
 			switch (searchStrategy) {
@@ -276,18 +277,18 @@ class AnnotationsScanner {
 					"Unsupported search strategy " + searchStrategy);
 		}
 
-		private static Results getDirect(Method source) {
+		private static List<DeclaredAnnotations> getDirect(Method source) {
 			return Results.of(getDeclaredAnnotations(source));
 		}
 
-		private static Results getSuperclass(Method source, Class<?> declaringClass) {
+		private static List<DeclaredAnnotations> getSuperclass(Method source, Class<?> declaringClass) {
 			List<DeclaredAnnotations> aggregates = new ArrayList<>();
 			aggregates.add(getDeclaredAnnotations(source));
 			collect(aggregates, source, declaringClass, false, false);
 			return Results.of(aggregates);
 		}
 
-		private static Results getExhaustive(Method source, Class<?> declaringClass) {
+		private static List<DeclaredAnnotations> getExhaustive(Method source, Class<?> declaringClass) {
 			List<DeclaredAnnotations> aggregates = new ArrayList<>();
 			aggregates.add(getDeclaredAnnotations(source));
 			collect(aggregates, source, declaringClass, false, true);
@@ -369,7 +370,7 @@ class AnnotationsScanner {
 	 */
 	private static class ElementAnnotationsScanner extends AnnotationsScanner {
 
-		private static Results getResults(AnnotatedElement source,
+		private static List<DeclaredAnnotations> getResults(AnnotatedElement source,
 				SearchStrategy searchStrategy) {
 			if (searchStrategy != SearchStrategy.DIRECT) {
 				return AnnotationsScanner.scan(source, SearchStrategy.DIRECT);
@@ -412,17 +413,17 @@ class AnnotationsScanner {
 			return this.values.size();
 		}
 
-		static Results of(DeclaredAnnotations declaredAnnotations) {
+		static List<DeclaredAnnotations> of(DeclaredAnnotations declaredAnnotations) {
 			if (declaredAnnotations == DeclaredAnnotations.NONE) {
 				return NONE;
 			}
-			return new Results(Collections.singletonList(declaredAnnotations));
+			return Collections.singletonList(declaredAnnotations);
 		}
 
-		static Results of(List<DeclaredAnnotations> aggregates) {
+		static List<DeclaredAnnotations> of(List<DeclaredAnnotations> aggregates) {
 			for (DeclaredAnnotations annotations : aggregates) {
 				if (annotations != DeclaredAnnotations.NONE) {
-					return new Results(Collections.unmodifiableList(aggregates));
+					return  aggregates;
 				}
 			}
 			return NONE;
