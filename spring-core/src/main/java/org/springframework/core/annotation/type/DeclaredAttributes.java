@@ -66,7 +66,7 @@ public interface DeclaredAttributes extends Iterable<DeclaredAttribute> {
 	DeclaredAttributes NONE = SimpleDeclaredAttributes.NONE;
 
 	/**
-	 * Return a stream of all attribute names.
+	 * Return all attribute names.
 	 * @return all attribute names
 	 */
 	Set<String> names();
