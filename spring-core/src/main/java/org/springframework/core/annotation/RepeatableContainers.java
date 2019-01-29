@@ -19,6 +19,9 @@ package org.springframework.core.annotation;
 import java.lang.annotation.Annotation;
 import java.lang.annotation.Repeatable;
 import java.lang.reflect.Method;
+import java.util.Arrays;
+import java.util.HashSet;
+import java.util.Set;
 
 import org.springframework.core.annotation.type.AnnotationType;
 import org.springframework.core.annotation.type.AttributeType;
@@ -43,6 +46,9 @@ import org.springframework.util.ObjectUtils;
  * @since 5.2
  */
 public abstract class RepeatableContainers {
+
+	private static final Set<String> VALUE_NAME_ONLY = new HashSet<>(
+			Arrays.asList("value"));
 
 	private final RepeatableContainers parent;
 
@@ -181,15 +187,22 @@ public abstract class RepeatableContainers {
 		@Override
 		public AnnotationType findContainedRepeatable(AnnotationType type,
 				DeclaredAttributes attributes, ClassLoader classLoader) {
-			Object value = attributes.get("value");
+			if (!VALUE_NAME_ONLY.equals(type.getAttributeTypes().attributeNames())) {
+				return super.findContainedRepeatable(type, attributes, classLoader);
+			}
 			AttributeType valueType = type.getAttributeTypes().get("value");
-			if (value != null && value instanceof DeclaredAttributes[]) {
-				String elementType = valueType.getClassName().replace("[]", "");
-				AnnotationType repeatableType = AnnotationType.resolve(elementType,
-						classLoader);
-				if (hasAnnotation(repeatableType, REPEATABLE)) {
-					return repeatableType;
-				}
+			if (!valueType.getClassName().endsWith("[]")) {
+				return super.findContainedRepeatable(type, attributes, classLoader);
+			}
+			Object value = attributes.get("value");
+			if (value == null && !(value instanceof DeclaredAttributes[])) {
+				return super.findContainedRepeatable(type, attributes, classLoader);
+			}
+			String elementType = valueType.getClassName().replace("[]", "");
+			AnnotationType repeatableType = AnnotationType.resolve(elementType,
+					classLoader);
+			if (hasAnnotation(repeatableType, REPEATABLE)) {
+				return repeatableType;
 			}
 			return super.findContainedRepeatable(type, attributes, classLoader);
 		}
