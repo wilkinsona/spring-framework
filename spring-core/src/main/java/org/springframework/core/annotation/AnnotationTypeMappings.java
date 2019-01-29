@@ -306,7 +306,7 @@ class AnnotationTypeMappings {
 			}
 		}
 
-		private Object addMapping(Deque<AnnotationTypeMapping> queue,
+		private void addMapping(Deque<AnnotationTypeMapping> queue,
 				AnnotationTypeMapping parent, AnnotationType annotation,
 				DeclaredAttributes attributes) {
 			if (isMappable(parent, annotation)) {
@@ -315,7 +315,6 @@ class AnnotationTypeMappings {
 						this.annotationFilter, parent, annotation, attributes);
 				queue.addLast(mapping);
 			}
-			return null;
 		}
 
 		private boolean isMappable(AnnotationTypeMapping parent,

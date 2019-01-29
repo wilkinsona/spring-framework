@@ -77,32 +77,28 @@ public abstract class RepeatableContainers {
 	 * @param classLoader the classloader used when resolving annotations
 	 * @param consumer a consumer to be visited
 	 */
-	@Nullable
-	<T> T visit(DeclaredAnnotation annotation, ClassLoader classLoader,
-			ContainedAnnotationConsumer<T> consumer) {
+	void visit(DeclaredAnnotation annotation, ClassLoader classLoader,
+			ContainedAnnotationConsumer consumer) {
 		AnnotationType annotationType = AnnotationType.resolve(annotation.getType(),
 				classLoader);
 		DeclaredAttributes attributes = annotation.getAttributes();
 		AnnotationType repeatableAnnotationType = findContainedRepeatable(annotationType,
 				attributes, classLoader);
 		if (repeatableAnnotationType == null) {
-			return consumer.accept(annotationType, attributes);
+			consumer.accept(annotationType, attributes);
 		}
-		return doWithRepeated(repeatableAnnotationType,
+		else {
+			doWithRepeated(repeatableAnnotationType,
 					(DeclaredAttributes[]) attributes.get("value"), consumer);
+		}
 	}
 
-	@Nullable
-	private <T> T doWithRepeated(AnnotationType annotationType,
+	private void doWithRepeated(AnnotationType annotationType,
 			DeclaredAttributes[] repeateAttributes,
-			ContainedAnnotationConsumer<T> consumer) {
+			ContainedAnnotationConsumer consumer) {
 		for (DeclaredAttributes attributes : repeateAttributes) {
-			T result = consumer.accept(annotationType, attributes);
-			if(result != null) {
-				return result;
-			}
+			consumer.accept(annotationType, attributes);
 		}
-		return null;
 	}
 
 	/**
@@ -321,9 +317,9 @@ public abstract class RepeatableContainers {
 	 * Consumer used to receive contained annotations.
 	 */
 	@FunctionalInterface
-	static interface ContainedAnnotationConsumer<T> {
+	static interface ContainedAnnotationConsumer {
 
-		T accept(AnnotationType annotationType, DeclaredAttributes declaredAttributes);
+		void accept(AnnotationType annotationType, DeclaredAttributes declaredAttributes);
 
 	}
 
