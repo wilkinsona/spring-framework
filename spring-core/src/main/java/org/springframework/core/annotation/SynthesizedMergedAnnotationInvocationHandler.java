@@ -60,12 +60,6 @@ class SynthesizedMergedAnnotationInvocationHandler<A extends Annotation>
 		Assert.isTrue(type.isAnnotation(), "Type must be an annotation");
 		this.type = type;
 		this.annotation = annotation;
-		verifyAttributeMethods();
-	}
-
-	private void verifyAttributeMethods() {
-		ReflectionUtils.doWithLocalMethods(this.type, this::getAttributeValue,
-				this::isAttributeMethod);
 	}
 
 	@Override
