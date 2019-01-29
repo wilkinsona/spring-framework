@@ -44,6 +44,7 @@ import org.springframework.core.annotation.type.AnnotationTypeCache;
 import org.springframework.core.annotation.type.DeclaredAnnotation;
 import org.springframework.lang.Nullable;
 import org.springframework.util.ClassUtils;
+import org.springframework.util.ConcurrentReferenceHashMap;
 import org.springframework.util.ObjectUtils;
 import org.springframework.util.ReflectionUtils;
 import org.springframework.util.StringUtils;
@@ -122,6 +123,7 @@ public abstract class AnnotationUtils {
 	@Nullable
 	private static transient Log logger;
 
+	private static Map<Class<? extends Annotation>, Map<String, Object>> defaultValuesCache = new ConcurrentReferenceHashMap<>();
 
 	/**
 	 * Get a single {@link Annotation} of {@code annotationType} from the supplied
@@ -751,6 +753,12 @@ public abstract class AnnotationUtils {
 	}
 
 	private static Map<String, Object> getDefaultValues(
+			Class<? extends Annotation> annotationType) {
+		return defaultValuesCache.computeIfAbsent(annotationType,
+				AnnotationUtils::computeDefaultValues);
+	}
+
+	private static Map<String, Object> computeDefaultValues(
 			Class<? extends Annotation> annotationType) {
 		return MergedAnnotation.from(annotationType).asMap(
 				getAnnotationAttributesFactory(annotationType.getClassLoader()),
