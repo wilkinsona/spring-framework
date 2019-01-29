@@ -225,8 +225,8 @@ class TypeMappedAnnotation<A extends Annotation> extends AbstractMergedAnnotatio
 				attributes);
 	}
 
-	static <A extends Annotation> MergedAnnotation<A> from(
-			@Nullable Object source, A annotation) {
+	static <A extends Annotation> MergedAnnotation<A> from(@Nullable Object source,
+			A annotation) {
 		Assert.notNull(annotation, "Annotation must not be null");
 		Class<? extends Annotation> annotationType = annotation.annotationType();
 		ClassLoader classLoader = annotationType.getClassLoader();
@@ -234,9 +234,8 @@ class TypeMappedAnnotation<A extends Annotation> extends AbstractMergedAnnotatio
 				DeclaredAnnotation.from(annotation).getAttributes());
 	}
 
-	static <A extends Annotation> MergedAnnotation<A> from(
-			@Nullable Object source, Class<A> annotationType,
-			@Nullable Map<String, ?> attributes) {
+	static <A extends Annotation> MergedAnnotation<A> from(@Nullable Object source,
+			Class<A> annotationType, @Nullable Map<String, ?> attributes) {
 		Assert.notNull(annotationType, "AnnotationType must not be null");
 		ClassLoader classLoader = annotationType.getClassLoader();
 		return of(classLoader, source, AnnotationType.resolve(annotationType),
@@ -252,9 +251,8 @@ class TypeMappedAnnotation<A extends Annotation> extends AbstractMergedAnnotatio
 				annotation.getAttributes());
 	}
 
-	private static <A extends Annotation> MergedAnnotation<A> of(
-			ClassLoader classLoader, Object source, AnnotationType annotationType,
-			DeclaredAttributes attributes) {
+	private static <A extends Annotation> MergedAnnotation<A> of(ClassLoader classLoader,
+			Object source, AnnotationType annotationType, DeclaredAttributes attributes) {
 		AnnotationTypeMappings mappings = AnnotationTypeMappings.forType(classLoader,
 				RepeatableContainers.none(),
 				AnnotationFilter.mostAppropriateFor(annotationType.getClassName()),
