@@ -68,7 +68,7 @@ abstract class AbstractDeclaredAttributes implements DeclaredAttributes {
 		for (DeclaredAttribute attribute : this) {
 			Object value = attribute.getValue();
 			Assert.isTrue(value == null || isSupportedType(value.getClass()),
-					"Attribute '" + attribute.getName() + "' type "
+					() -> "Attribute '" + attribute.getName() + "' type "
 							+ value.getClass().getName()
 							+ " cannot be used as a DeclaredAttribute value");
 		}

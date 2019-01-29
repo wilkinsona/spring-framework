@@ -109,7 +109,7 @@ class AnnotationTypeMapping {
 		for (String attributeName : attributeNames) {
 			AttributeType attributeType = getAnnotationType().getAttributeTypes().get(
 					attributeName);
-			Assert.notNull(attributeType, "Missing attribute " + attributeName);
+			Assert.notNull(attributeType, () -> "Missing attribute " + attributeName);
 			references.add(new Reference(this, attributeType));
 		}
 		addMirrorSet(new MirrorSet(references));
