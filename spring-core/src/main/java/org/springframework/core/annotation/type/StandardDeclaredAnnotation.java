@@ -27,7 +27,7 @@ import org.springframework.util.Assert;
  * @author Phillip webb
  * @since 5.2
  */
-class StandardDeclaredAnnotation implements DeclaredAnnotation {
+public class StandardDeclaredAnnotation implements DeclaredAnnotation {
 
 	private final Annotation annotation;
 
@@ -37,6 +37,14 @@ class StandardDeclaredAnnotation implements DeclaredAnnotation {
 		Assert.notNull(annotation, "Annotation must not be null");
 		this.annotation = annotation;
 		this.attributes = new StandardDeclaredAttributes(annotation);
+	}
+
+	/**
+	 * Return the underlying source Java annotation.
+	 * @return the source annotation
+	 */
+	public Annotation getAnnotation() {
+		return this.annotation;
 	}
 
 	@Override

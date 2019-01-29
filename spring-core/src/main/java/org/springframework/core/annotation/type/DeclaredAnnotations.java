@@ -79,6 +79,8 @@ public interface DeclaredAnnotations extends Iterable<DeclaredAnnotation> {
 		return null;
 	}
 
+	// FIXME rename element to source
+
 	/**
 	 * Create a new {@link DeclaredAnnotations} instance from the source Java
 	 * {@link Annotation Annotations}.

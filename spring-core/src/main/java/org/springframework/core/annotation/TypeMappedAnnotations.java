@@ -32,12 +32,13 @@ import java.util.function.Predicate;
 import org.springframework.core.annotation.type.DeclaredAnnotation;
 import org.springframework.core.annotation.type.DeclaredAnnotations;
 import org.springframework.core.annotation.type.DeclaredAttributes;
+import org.springframework.core.annotation.type.StandardDeclaredAnnotation;
 import org.springframework.lang.Nullable;
 import org.springframework.util.Assert;
 
 /**
- * {@link MergedAnnotations} implementation that uses {@link AnnotationTypeMappings} to
- * adapt annotations.
+ * {@link MergedAnnotations} implementation that uses
+ * {@link AnnotationTypeMappings} to adapt annotations.
  *
  * @author Phillip Webb
  * @since 5.2
@@ -49,13 +50,6 @@ final class TypeMappedAnnotations extends AbstractMergedAnnotations {
 	private final List<MappableAnnotations> aggregates;
 
 	private volatile Set<MergedAnnotation<Annotation>> all;
-
-	private TypeMappedAnnotations(AnnotatedElement source, Annotation[] annotations,
-			RepeatableContainers repeatableContainers,
-			AnnotationFilter annotationFilter) {
-		this.aggregates = Collections.singletonList(new MappableAnnotations(source,
-				annotations, repeatableContainers, annotationFilter));
-	}
 
 	private TypeMappedAnnotations(ClassLoader classLoader,
 			List<DeclaredAnnotations> aggregates,
@@ -170,8 +164,20 @@ final class TypeMappedAnnotations extends AbstractMergedAnnotations {
 			Annotation[] annotations, RepeatableContainers repeatableContainers,
 			AnnotationFilter annotationFilter) {
 		Assert.notNull(annotations, "Annotations must not be null");
-		return new TypeMappedAnnotations(source, annotations, repeatableContainers,
-				annotationFilter);
+		ClassLoader classLoader = getClassLoader(source);
+		List<DeclaredAnnotations> aggregates = Collections.singletonList(
+				DeclaredAnnotations.from(source, annotations));
+		return of(classLoader, aggregates, repeatableContainers, annotationFilter);
+	}
+
+	private static ClassLoader getClassLoader(AnnotatedElement source) {
+		if (source instanceof Member) {
+			return getClassLoader(((Member) source).getDeclaringClass());
+		}
+		if (source instanceof Class) {
+			return ((Class<?>) source).getClassLoader();
+		}
+		return null;
 	}
 
 	static MergedAnnotations of(ClassLoader classLoader,
@@ -201,30 +207,19 @@ final class TypeMappedAnnotations extends AbstractMergedAnnotations {
 
 		private final List<MappableAnnotation> mappableAnnotations;
 
-		public MappableAnnotations(AnnotatedElement source, Annotation[] annotations,
-				RepeatableContainers repeatableContainers,
-				AnnotationFilter annotationFilter) {
-			this.mappableAnnotations = new ArrayList<>(annotations.length);
-			ClassLoader sourceClassLoader = getClassLoader(source);
-			for (Annotation annotation : annotations) {
-				ClassLoader classLoader = sourceClassLoader != null ? sourceClassLoader
-						: annotation.getClass().getClassLoader();
-				add(classLoader, source, 0, DeclaredAnnotation.from(annotation),
-						repeatableContainers, annotationFilter);
-			}
-		}
-
 		public MappableAnnotations(ClassLoader classLoader, int aggregateIndex,
 				DeclaredAnnotations annotations,
 				RepeatableContainers repeatableContainers,
 				AnnotationFilter annotationFilter) {
 			this.mappableAnnotations = new ArrayList<>(annotations.size());
-			if (classLoader == null) {
-				classLoader = getClassLoader(annotations.getSource());
-			}
 			for (DeclaredAnnotation annotation : annotations) {
-				add(classLoader, annotations.getSource(), aggregateIndex, annotation,
-						repeatableContainers, annotationFilter);
+				ClassLoader annotationClassLoader = classLoader;
+				if (classLoader == null
+						&& annotation instanceof StandardDeclaredAnnotation) {
+					annotationClassLoader = ((StandardDeclaredAnnotation) annotation).getAnnotation().getClass().getClassLoader();
+				}
+				add(annotationClassLoader, annotations.getSource(), aggregateIndex,
+						annotation, repeatableContainers, annotationFilter);
 			}
 		}
 
@@ -239,16 +234,6 @@ final class TypeMappedAnnotations extends AbstractMergedAnnotations {
 							aggregateIndex, attributes));
 				}
 			});
-		}
-
-		private ClassLoader getClassLoader(Object source) {
-			if (source instanceof Member) {
-				return getClassLoader(((Member) source).getDeclaringClass());
-			}
-			if (source instanceof Class) {
-				return ((Class<?>) source).getClassLoader();
-			}
-			return null;
 		}
 
 		public boolean isPresent(String annotationType) {
