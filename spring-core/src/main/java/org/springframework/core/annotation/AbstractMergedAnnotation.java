@@ -534,15 +534,19 @@ abstract class AbstractMergedAnnotation<A extends Annotation>
 		if (Object.class.equals(requiredType)) {
 			return (T) attributeValue;
 		}
+		assertForExtract(attributeValue, attributeType, requiredType);
+		return (T) attributeValue;
+	}
+
+	private <T> void assertForExtract(Object attributeValue, AttributeType attributeType,
+			Class<T> requiredType) {
 		Assert.isTrue(isSupportedForExtract(requiredType),
 				() -> "Type " + requiredType.getName() + " is not supported");
-		Object determinedValue = attributeValue;
 		Assert.state(requiredType.isInstance(attributeValue),
 				() -> "Attribute '" + attributeType.getAttributeName()
 						+ "' in annotation " + getType() + " should be of type "
 						+ attributeType.getClassName() + " but a "
-						+ determinedValue.getClass().getName() + " value was returned");
-		return (T) attributeValue;
+						+ attributeValue.getClass().getName() + " value was returned");
 	}
 
 	private <T> boolean isSupportedForExtract(Class<T> requiredType) {
