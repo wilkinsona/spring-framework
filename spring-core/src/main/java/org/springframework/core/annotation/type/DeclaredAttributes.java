@@ -58,7 +58,7 @@ public interface DeclaredAttributes extends Iterable<DeclaredAttribute> {
 	 * <li>{@code DeclaredAttributes} / {@code DeclaredAttributes[]}</li>
 	 * </ul>
 	 */
-	static final Set<Class<?>> SUPPORTED_TYPES = AbstractDeclaredAttributes.SUPPORTED_TYPES;
+	static final Set<Class<?>> SUPPORTED_TYPES = AttributeValue.SUPPORTED_TYPES;
 
 	/**
 	 * Constant that can be used when there are no declared attributes.

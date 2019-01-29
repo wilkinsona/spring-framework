@@ -36,13 +36,13 @@ import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.mock;
 
 /**
- * Tests for {@link AnnotationTypeResolver}.
+ * Tests for {@link AsmAnnotationTypeResolver}.
  *
  * @author Phillip Webb
  */
-public class AnnotationTypeResolverTests {
+public class AsmAnnotationTypeResolverTests {
 
-	private final AnnotationTypeResolver resolver = AnnotationTypeResolver.get(
+	private final AsmAnnotationTypeResolver resolver = AsmAnnotationTypeResolver.get(
 			getClass().getClassLoader());
 
 	@Test
@@ -65,7 +65,7 @@ public class AnnotationTypeResolverTests {
 		Resource resource = mock(Resource.class);
 		given(resourceLoader.getResource(anyString())).willReturn(resource);
 		given(resource.getInputStream()).willThrow(IOException.class);
-		AnnotationTypeResolver resolver = new AnnotationTypeResolver(resourceLoader);
+		AsmAnnotationTypeResolver resolver = new AsmAnnotationTypeResolver(resourceLoader);
 		assertThatExceptionOfType(UnresolvableAnnotationTypeException.class).isThrownBy(
 				() -> resolver.resolve(ExampleSimpleAnnotation.class.getName()));
 	}

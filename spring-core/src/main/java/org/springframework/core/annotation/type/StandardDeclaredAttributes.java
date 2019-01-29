@@ -94,12 +94,17 @@ public class StandardDeclaredAttributes extends AbstractDeclaredAttributes {
 	private Object get(Method method) {
 		try {
 			method.setAccessible(true);
-			return convert(method.invoke(this.annotation));
+			return AttributeValue.convert(method.invoke(this.annotation));
 		}
 		catch (Throwable ex) {
 			throw new IllegalStateException(
 					"Could not obtain annotation attribute value for " + method, ex);
 		}
+	}
+
+	@Override
+	public String toString() {
+		return AnnotationString.get(this);
 	}
 
 	/**

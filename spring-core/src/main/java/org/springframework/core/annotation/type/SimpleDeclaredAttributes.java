@@ -99,7 +99,7 @@ class SimpleDeclaredAttributes extends AbstractDeclaredAttributes {
 		}
 		Map<String, Object> values = new LinkedHashMap<>();
 		for (Map.Entry<String, ?> entry : attributes.entrySet()) {
-			values.put(entry.getKey(), convert(entry.getValue()));
+			values.put(entry.getKey(), AttributeValue.convert(entry.getValue()));
 		}
 		return new SimpleDeclaredAttributes(values);
 	}

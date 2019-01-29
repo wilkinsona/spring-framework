@@ -16,27 +16,9 @@
 
 package org.springframework.core.annotation.type;
 
-import java.io.BufferedInputStream;
-import java.io.IOException;
-import java.io.InputStream;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
-import java.util.function.Consumer;
+import java.lang.annotation.Annotation;
 
-import org.springframework.asm.AnnotationVisitor;
-import org.springframework.asm.ClassReader;
-import org.springframework.asm.ClassVisitor;
-import org.springframework.asm.MethodVisitor;
-import org.springframework.asm.SpringAsmInfo;
-import org.springframework.asm.Type;
-import org.springframework.core.io.DefaultResourceLoader;
-import org.springframework.core.io.Resource;
-import org.springframework.core.io.ResourceLoader;
-import org.springframework.lang.Nullable;
 import org.springframework.util.Assert;
-import org.springframework.util.ClassUtils;
-import org.springframework.util.ConcurrentReferenceHashMap;
 
 /**
  * ASM based annotation resolver used by
@@ -47,238 +29,28 @@ import org.springframework.util.ConcurrentReferenceHashMap;
  */
 final class AnnotationTypeResolver {
 
-	private static final Map<ClassLoader, AnnotationTypeResolver> resolverCache = new ConcurrentReferenceHashMap<>(
-			4);
-
-	private final ResourceLoader resourceLoader;
-
-	private final Map<String, Object> cache = new ConcurrentReferenceHashMap<>();
-
-	AnnotationTypeResolver(ResourceLoader resourceLoader) {
-		this.resourceLoader = resourceLoader;
+	public static AnnotationType resolve(String className, ClassLoader classLoader) {
+		Assert.hasText(className, "ClassName must not be null");
+		return resolve(forName(className, classLoader));
 	}
 
-	@Nullable
-	public AnnotationType resolve(String className) {
-		Assert.hasText(className, "ClassName must not be empty");
-		return resolve(className, true);
+	public static AnnotationType resolve(Class<? extends Annotation> annotationClass) {
+		return new StandardAnnotationType(annotationClass);
 	}
 
-	@Nullable
-	AnnotationType resolve(String className, boolean useCache) {
-		if (!useCache) {
-			return load(className);
-		}
-		Object result = this.cache.get(className);
-		if (result == null) {
-			try {
-				result = load(className);
-			}
-			catch (RuntimeException ex) {
-				result = ex;
-			}
-			this.cache.put(className, result);
-		}
-		if (result instanceof RuntimeException) {
-			throw (RuntimeException) result;
-		}
-		return (AnnotationType) result;
-	}
-
-	private AnnotationType load(String className) {
-		String resourcePath = getResourcePath(className);
-		Resource resource = this.resourceLoader.getResource(resourcePath);
+	@SuppressWarnings("unchecked")
+	private static Class<? extends Annotation> forName(String className,
+			ClassLoader classLoader) {
 		try {
-			return load(resource);
+			return (Class<? extends Annotation>) Class.forName(className, false,
+					classLoader);
 		}
 		catch (Exception ex) {
 			throw new UnresolvableAnnotationTypeException(className, ex);
 		}
 	}
 
-	private AnnotationType load(Resource resource) throws Exception {
-		try (InputStream inputStream = new BufferedInputStream(
-				resource.getInputStream())) {
-			return load(inputStream);
-		}
-	}
-
-	private AnnotationType load(InputStream inputStream) throws IOException {
-		ClassReader classReader = new ClassReader(inputStream);
-		AnnotationTypeClassVisitor visitor = new AnnotationTypeClassVisitor();
-		classReader.accept(visitor, ClassReader.SKIP_DEBUG);
-		return visitor.getAnnotationType();
-
-	}
-
-	private String getResourcePath(String className) {
-		return ResourceLoader.CLASSPATH_URL_PREFIX
-				+ ClassUtils.convertClassNameToResourcePath(className)
-				+ ClassUtils.CLASS_FILE_SUFFIX;
-	}
-
-	public static AnnotationType resolve(Class<?> annotationClass) {
-		Assert.notNull(annotationClass, "AnnotationClass must not be null");
-		return resolve(annotationClass.getName(), annotationClass.getClassLoader());
-	}
-
-	public static AnnotationType resolve(String className, ClassLoader classLoader) {
-		Assert.hasText(className, "ClassName must not be null");
-		return get(classLoader).resolve(className);
-	}
-
-	static AnnotationTypeResolver get(@Nullable ClassLoader classLoader) {
-		classLoader = classLoader != null ? classLoader
-				: ClassUtils.getDefaultClassLoader();
-		if (classLoader == null) {
-			return createResolver(classLoader);
-		}
-		return resolverCache.computeIfAbsent(classLoader,
-				AnnotationTypeResolver::createResolver);
-	}
-
-	private static AnnotationTypeResolver createResolver(ClassLoader classLoader) {
-		DefaultResourceLoader resourceLoader = new DefaultResourceLoader(classLoader);
-		return new AnnotationTypeResolver(resourceLoader);
-	}
-
-	static void clearCache() {
-		resolverCache.clear();
-	}
-
-	/**
-	 * {@link ClassVisitor} used to parse the annotation class bytecode.
-	 */
-	private static class AnnotationTypeClassVisitor extends ClassVisitor {
-
-		private final List<DeclaredAnnotation> declaredAnnotations = new ArrayList<>();
-
-		private final List<AttributeType> attributeTypes = new ArrayList<>();
-
-		private String type;
-
-		public AnnotationTypeClassVisitor() {
-			super(SpringAsmInfo.ASM_VERSION);
-		}
-
-		@Override
-		public void visit(int version, int access, String name, String signature,
-				String superName, String[] interfaces) {
-			this.type = Type.getObjectType(name).getClassName();
-		}
-
-		@Override
-		public AnnotationVisitor visitAnnotation(String desc, boolean visible) {
-			return DeclaredAnnotationAnnotationVisitor.forTypeDescriptor(desc,
-					this.declaredAnnotations::add);
-		}
-
-		@Override
-		public MethodVisitor visitMethod(int access, String name, String desc,
-				String signature, String[] exceptions) {
-			Type[] argumentTypes = Type.getArgumentTypes(desc);
-			Type returnType = Type.getReturnType(desc);
-			if (argumentTypes.length != 0 || returnType.getSort() == Type.VOID) {
-				return null;
-			}
-			return new AnnotationTypeMethodVisitor(this.type, name,
-					returnType.getClassName(), this.attributeTypes::add);
-		}
-
-		public AnnotationType getAnnotationType() {
-			return new SimpleAnnotationType(this.type,
-					new SimpleDeclaredAnnotations(new Source(this.type),
-							this.declaredAnnotations),
-					new SimpleAttributeTypes(this.attributeTypes));
-		}
-
-	}
-
-	/**
-	 * {@link MethodVisitor} used to parse the annotation method bytecode.
-	 */
-	private static class AnnotationTypeMethodVisitor extends MethodVisitor {
-
-		private final String declaringClass;
-
-		private final String name;
-
-		private final String type;
-
-		private final Consumer<AttributeType> consumer;
-
-		private final List<DeclaredAnnotation> declaredAnnotations = new ArrayList<>();
-
-		private Object defaultValue;
-
-		public AnnotationTypeMethodVisitor(String declaringClass, String name,
-				String type, Consumer<AttributeType> consumer) {
-			super(SpringAsmInfo.ASM_VERSION);
-			this.declaringClass = declaringClass;
-			this.name = name;
-			this.type = type;
-			this.consumer = consumer;
-		}
-
-		@Override
-		public AnnotationVisitor visitAnnotation(String desc, boolean visible) {
-			return DeclaredAnnotationAnnotationVisitor.forTypeDescriptor(desc,
-					this.declaredAnnotations::add);
-		}
-
-		@Override
-		public AnnotationVisitor visitAnnotationDefault() {
-			return new AttributeValuesAnnotationVisitor(this::visitDefaultValue);
-		}
-
-		private void visitDefaultValue(String name, Object value) {
-			this.defaultValue = value;
-		}
-
-		@Override
-		public void visitEnd() {
-			Source source = new Source(
-					this.type + ":" + this.declaringClass + "." + this.name);
-			AttributeType attributeType = new SimpleAttributeType(this.name, this.type,
-					new SimpleDeclaredAnnotations(source, this.declaredAnnotations),
-					this.defaultValue);
-			this.consumer.accept(attributeType);
-		}
-
-	}
-
-	/**
-	 * ASM source for use with {@link DeclaredAnnotations}.
-	 */
-	private static class Source {
-
-		private final String name;
-
-		public Source(String name) {
-			this.name = name;
-		}
-
-		@Override
-		public int hashCode() {
-			return this.name.hashCode();
-		}
-
-		@Override
-		public boolean equals(Object obj) {
-			if (this == obj) {
-				return true;
-			}
-			if (obj == null || getClass() != obj.getClass()) {
-				return false;
-			}
-			return this.name.equals(((Source) obj).name);
-		}
-
-		@Override
-		public String toString() {
-			return this.name;
-		}
-
+	public static void clearCache() {
 	}
 
 }
