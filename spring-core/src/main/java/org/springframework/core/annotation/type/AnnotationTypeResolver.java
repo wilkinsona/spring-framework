@@ -17,8 +17,12 @@
 package org.springframework.core.annotation.type;
 
 import java.lang.annotation.Annotation;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 
-import org.springframework.util.Assert;
+import org.springframework.lang.Nullable;
+import org.springframework.util.ClassUtils;
+import org.springframework.util.ConcurrentReferenceHashMap;
 
 /**
  * ASM based annotation resolver used by
@@ -29,18 +33,53 @@ import org.springframework.util.Assert;
  */
 final class AnnotationTypeResolver {
 
-	public static AnnotationType resolve(String className, ClassLoader classLoader) {
-		Assert.hasText(className, "ClassName must not be null");
-		return resolve(forName(className, classLoader));
+	private static Map<ClassLoader, AnnotationTypeResolver> resolverCache = new ConcurrentReferenceHashMap<>();
+
+	private final ClassLoader classLoader;
+
+	private final Map<String, Object> cache = new ConcurrentHashMap<>();
+
+	public AnnotationTypeResolver(ClassLoader classLoader) {
+		this.classLoader = classLoader;
 	}
 
-	public static AnnotationType resolve(Class<? extends Annotation> annotationClass) {
-		return new StandardAnnotationType(annotationClass);
+	private AnnotationType doResolve(String className) {
+		return extractResult(
+				this.cache.computeIfAbsent(className, this::computeAnnotationType));
+	}
+
+	private AnnotationType doResolve(Class<? extends Annotation> annotationClass) {
+		return extractResult(this.cache.computeIfAbsent(annotationClass.getName(),
+				this::computeAnnotationType));
+	}
+
+	private Object computeAnnotationType(String className) {
+		try {
+			return computeAnnotationType(forName(className));
+		}
+		catch (RuntimeException ex) {
+			return ex;
+		}
+	}
+
+	private Object computeAnnotationType(Class<? extends Annotation> annotationClass) {
+		try {
+			return new StandardAnnotationType(annotationClass);
+		}
+		catch (RuntimeException ex) {
+			return ex;
+		}
+	}
+
+	private AnnotationType extractResult(Object result) {
+		if (result instanceof AnnotationType) {
+			return (AnnotationType) result;
+		}
+		throw (RuntimeException) result;
 	}
 
 	@SuppressWarnings("unchecked")
-	private static Class<? extends Annotation> forName(String className,
-			ClassLoader classLoader) {
+	private Class<? extends Annotation> forName(String className) {
 		try {
 			return (Class<? extends Annotation>) Class.forName(className, false,
 					classLoader);
@@ -50,7 +89,57 @@ final class AnnotationTypeResolver {
 		}
 	}
 
-	public static void clearCache() {
+	public static AnnotationType resolve(String className, ClassLoader classLoader) {
+		return get(classLoader).doResolve(className);
 	}
+
+	public static AnnotationType resolve(Class<? extends Annotation> annotationClass) {
+		return get(annotationClass.getClassLoader()).doResolve(annotationClass);
+	}
+
+	static AnnotationTypeResolver get(@Nullable ClassLoader classLoader) {
+		classLoader = classLoader != null ? classLoader
+				: ClassUtils.getDefaultClassLoader();
+		if (classLoader == null) {
+			return createResolver(classLoader);
+		}
+		return resolverCache.computeIfAbsent(classLoader,
+				AnnotationTypeResolver::createResolver);
+	}
+
+	private static AnnotationTypeResolver createResolver(ClassLoader classLoader) {
+		return new AnnotationTypeResolver(classLoader);
+	}
+
+	static void clearCache() {
+		resolverCache.clear();
+	}
+
+	//
+	//
+	// public static AnnotationType resolve(String className, ClassLoader
+	// classLoader) {
+	// classLoader = classLoader != null ? classLoader
+	// : ClassUtils.getDefaultClassLoader();
+	// resolverCache.computeIfAbsent(classLoader,
+	// AnnotationTypeResolver::createResolver);
+	//
+	//
+	// resolverCache.get(classLoader).resolver(className);
+	// Assert.hasText(className, "ClassName must not be null");
+	// return resolve(forName(className, classLoader));
+	// }
+	//
+	// private static AsmAnnotationTypeResolver createResolver(ClassLoader
+	// classLoader) {
+	// DefaultResourceLoader resourceLoader = new
+	// DefaultResourceLoader(classLoader);
+	// return new AsmAnnotationTypeResolver(resourceLoader);
+	// }
+	//
+	//
+	//
+
+	//
 
 }
