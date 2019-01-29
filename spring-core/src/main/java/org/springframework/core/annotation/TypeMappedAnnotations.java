@@ -29,6 +29,7 @@ import java.util.List;
 import java.util.Set;
 import java.util.function.Predicate;
 
+import org.springframework.core.annotation.type.AnnotationType;
 import org.springframework.core.annotation.type.DeclaredAnnotation;
 import org.springframework.core.annotation.type.DeclaredAnnotations;
 import org.springframework.core.annotation.type.DeclaredAttributes;
@@ -195,39 +196,60 @@ final class TypeMappedAnnotations extends AbstractMergedAnnotations {
 	 */
 	private static class MappableAnnotations implements Iterable<MappableAnnotation> {
 
-		private final List<MappableAnnotation> mappableAnnotations;
+		private final ClassLoader classLoader;
+
+		private final int aggregateIndex;
+
+		private final DeclaredAnnotations declaredAnnotations;
+
+		private final RepeatableContainers repeatableContainers;
+
+		private final AnnotationFilter annotationFilter;
+
+		private volatile List<MappableAnnotation> mappableAnnotations;
 
 		public MappableAnnotations(ClassLoader classLoader, int aggregateIndex,
-				DeclaredAnnotations annotations,
+				DeclaredAnnotations declaredAnnotations,
 				RepeatableContainers repeatableContainers,
 				AnnotationFilter annotationFilter) {
-			this.mappableAnnotations = new ArrayList<>(annotations.size());
-			for (DeclaredAnnotation annotation : annotations) {
-				ClassLoader annotationClassLoader = classLoader;
-				if (classLoader == null
-						&& annotation instanceof StandardDeclaredAnnotation) {
-					annotationClassLoader = ((StandardDeclaredAnnotation) annotation).getAnnotation().getClass().getClassLoader();
-				}
-				add(annotationClassLoader, annotations.getSource(), aggregateIndex,
-						annotation, repeatableContainers, annotationFilter);
-			}
-		}
-
-		private void add(ClassLoader classLoader, Object source, int aggregateIndex,
-				DeclaredAnnotation annotation, RepeatableContainers repeatableContainers,
-				AnnotationFilter annotationFilter) {
-			repeatableContainers.visit(annotation, classLoader, annotationFilter, (type, attributes) -> {
-						AnnotationTypeMappings mappings = AnnotationTypeMappings.forType(
-						classLoader, repeatableContainers, annotationFilter, type);
-				if (mappings != null) {
-					this.mappableAnnotations.add(new MappableAnnotation(mappings, source,
-							aggregateIndex, attributes));
-				}
-			});
+			this.classLoader = classLoader;
+			this.aggregateIndex = aggregateIndex;
+			this.declaredAnnotations = declaredAnnotations;
+			this.repeatableContainers = repeatableContainers;
+			this.annotationFilter = annotationFilter;
 		}
 
 		public boolean isPresent(String annotationType) {
-			for (MappableAnnotation mappableAnnotation : this.mappableAnnotations) {
+			List<MappableAnnotation> mappableAnnotations = this.mappableAnnotations;
+			if (mappableAnnotations != null) {
+				return isPresentFromMappableAnnotations(annotationType,
+						mappableAnnotations);
+			}
+			for (DeclaredAnnotation annotation : this.declaredAnnotations) {
+				ClassLoader classLoader = getAnnotationClassLoader(annotation);
+				if (this.repeatableContainers.visit(annotation, classLoader, this.annotationFilter,
+						(type, attributes) -> hasMapping(annotationType, classLoader,
+								type)) == Boolean.TRUE) {
+					return true;
+				}
+			}
+			return false;
+		}
+
+
+		private Boolean hasMapping(String annotationType, ClassLoader classLoader,
+				AnnotationType type) {
+			AnnotationTypeMappings mappings = AnnotationTypeMappings.forType(classLoader,
+					this.repeatableContainers, this.annotationFilter, type);
+			if (mappings != null && mappings.get(annotationType) != null) {
+				return Boolean.TRUE;
+			}
+			return null;
+		}
+
+		private boolean isPresentFromMappableAnnotations(String annotationType,
+				List<MappableAnnotation> mappableAnnotations) {
+			for (MappableAnnotation mappableAnnotation : mappableAnnotations) {
 				if (mappableAnnotation.isPresent(annotationType)) {
 					return true;
 				}
@@ -239,7 +261,7 @@ final class TypeMappedAnnotations extends AbstractMergedAnnotations {
 				@Nullable Predicate<? super MergedAnnotation<A>> predicate,
 				MergedAnnotationSelector<A> selector) {
 			MergedAnnotation<A> result = null;
-			for (MappableAnnotation mappableAnnotation : this.mappableAnnotations) {
+			for (MappableAnnotation mappableAnnotation : getMappableAnnotations()) {
 				MergedAnnotation<A> candidate = mappableAnnotation.get(annotationType,
 						predicate);
 				if (candidate != null && result == null) {
@@ -253,12 +275,12 @@ final class TypeMappedAnnotations extends AbstractMergedAnnotations {
 		}
 
 		public int size() {
-			return this.mappableAnnotations.size();
+			return getMappableAnnotations().size();
 		}
 
 		public int totalSize() {
 			int size = 0;
-			for (MappableAnnotation mappableAnnotation : this.mappableAnnotations) {
+			for (MappableAnnotation mappableAnnotation : getMappableAnnotations()) {
 				size += mappableAnnotation.size();
 			}
 			return size;
@@ -266,7 +288,48 @@ final class TypeMappedAnnotations extends AbstractMergedAnnotations {
 
 		@Override
 		public Iterator<MappableAnnotation> iterator() {
-			return this.mappableAnnotations.iterator();
+			return getMappableAnnotations().iterator();
+		}
+
+		public List<MappableAnnotation> getMappableAnnotations() {
+			List<MappableAnnotation> result = this.mappableAnnotations;
+			if (result != null) {
+				return result;
+			}
+			result = new ArrayList<>(this.declaredAnnotations.size());
+			for (DeclaredAnnotation declaredAnnotation : this.declaredAnnotations) {
+				ClassLoader classLoader = getAnnotationClassLoader(declaredAnnotation);
+				add(result, classLoader, this.declaredAnnotations.getSource(),
+						this.aggregateIndex, declaredAnnotation,
+						this.repeatableContainers, this.annotationFilter);
+			}
+			this.mappableAnnotations = result;
+			return result;
+		}
+
+		@Nullable
+		private ClassLoader getAnnotationClassLoader(
+				DeclaredAnnotation declaredAnnotation) {
+			if (this.classLoader == null
+					&& declaredAnnotation instanceof StandardDeclaredAnnotation) {
+				return ((StandardDeclaredAnnotation) declaredAnnotation).getAnnotation().getClass().getClassLoader();
+			}
+			return this.classLoader;
+		}
+
+		private static void add(List<MappableAnnotation> result, ClassLoader classLoader,
+				Object source, int aggregateIndex, DeclaredAnnotation annotation,
+				RepeatableContainers repeatableContainers,
+				AnnotationFilter annotationFilter) {
+			repeatableContainers.visit(annotation, classLoader, annotationFilter, (type, attributes) -> {
+				AnnotationTypeMappings mappings = AnnotationTypeMappings.forType(
+						classLoader, repeatableContainers, annotationFilter, type);
+				if (mappings != null) {
+					result.add(new MappableAnnotation(mappings, source, aggregateIndex,
+							attributes));
+				}
+				return null;
+			});
 		}
 
 	}
