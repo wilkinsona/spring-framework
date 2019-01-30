@@ -25,6 +25,7 @@ import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
@@ -123,7 +124,7 @@ public abstract class AnnotationUtils {
 	@Nullable
 	private static transient Log logger;
 
-	private static Map<Class<? extends Annotation>, Map<String, Object>> defaultValuesCache = new ConcurrentReferenceHashMap<>();
+	private static Map<Class<? extends Annotation>, Map<String, DefaultValueHolder>> defaultValuesCache = new ConcurrentReferenceHashMap<>();
 
 	/**
 	 * Get a single {@link Annotation} of {@code annotationType} from the supplied
@@ -736,16 +737,6 @@ public abstract class AnnotationUtils {
 							MapValues.of(classValuesAsString, nestedAnnotationsAsMap));
 	}
 
-	@SuppressWarnings("unchecked")
-	private static Function<MergedAnnotation<?>, AnnotationAttributes> getAnnotationAttributesFactory(
-			ClassLoader classLoader) {
-		return annotation -> {
-			Class<Annotation> type = (Class<Annotation>) ClassUtils.resolveClassName(
-					annotation.getType(), classLoader);
-			return new AnnotationAttributes(type, true);
-		};
-	}
-
 	/**
 	 * Register the annotation-declared default values for the given attributes,
 	 * if available.
@@ -755,22 +746,40 @@ public abstract class AnnotationUtils {
 	public static void registerDefaultValues(AnnotationAttributes attributes) {
 		Class<? extends Annotation> annotationType = attributes.annotationType();
 		if (annotationType != null && Modifier.isPublic(annotationType.getModifiers())) {
-			getDefaultValues(annotationType).forEach((name, value) ->
-				attributes.putIfAbsent(name, new DefaultValueHolder(value)));
+			Map<String, DefaultValueHolder> defaults = getDefaultValues(annotationType);
+			if (!defaults.isEmpty()) {
+				defaults.forEach((name, value) -> attributes.putIfAbsent(name, value));
+			}
 		}
 	}
 
-	private static Map<String, Object> getDefaultValues(
+	private static Map<String, DefaultValueHolder> getDefaultValues(
 			Class<? extends Annotation> annotationType) {
 		return defaultValuesCache.computeIfAbsent(annotationType,
 				AnnotationUtils::computeDefaultValues);
 	}
 
-	private static Map<String, Object> computeDefaultValues(
+	private static Map<String, DefaultValueHolder> computeDefaultValues(
 			Class<? extends Annotation> annotationType) {
-		return MergedAnnotation.from(annotationType).asMap(
+		MergedAnnotation<? extends Annotation> annotation = MergedAnnotation.from(
+				annotationType);
+		AnnotationAttributes attributes = annotation.asMap(
 				getAnnotationAttributesFactory(annotationType.getClassLoader()),
 				MapValues.ANNOTATION_TO_MAP);
+		Map<String, DefaultValueHolder> result = new LinkedHashMap<>(attributes.size());
+		attributes.forEach(
+				(key, value) -> result.put(key, new DefaultValueHolder(value)));
+		return result;
+	}
+
+	@SuppressWarnings("unchecked")
+	private static Function<MergedAnnotation<?>, AnnotationAttributes> getAnnotationAttributesFactory(
+			ClassLoader classLoader) {
+		return annotation -> {
+			Class<Annotation> type = (Class<Annotation>) ClassUtils.resolveClassName(
+					annotation.getType(), classLoader);
+			return new AnnotationAttributes(type, true);
+		};
 	}
 
 	/**
