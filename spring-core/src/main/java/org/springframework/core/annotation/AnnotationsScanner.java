@@ -314,18 +314,28 @@ class AnnotationsScanner {
 			return result;
 		}
 
-		private static boolean hasSameParameterTypes(Method m1, Method m2) {
-			if (m2.getParameterCount() != m1.getParameterCount()) {
+		private static boolean hasSameParameterTypes(Method source, Method candidate) {
+			if (candidate.getParameterCount() != source.getParameterCount()) {
 				return false;
 			}
-			Class<?>[] types = m1.getParameterTypes();
-			if (Arrays.equals(m2.getParameterTypes(), types)) {
+			Class<?>[] sourceTypes = source.getParameterTypes();
+			Class<?>[] candidateTypes = candidate.getParameterTypes();
+			if (Arrays.equals(candidateTypes, sourceTypes)) {
 				return true;
 			}
-			Class<?> implementationClass = m1.getDeclaringClass();
+			return hasSameGenericTypeParameters(source, candidate, sourceTypes);
+		}
+
+		private static boolean hasSameGenericTypeParameters(Method source, Method candidate,
+				Class<?>[] types) {
+			Class<?> sourceDeclaringClass = source.getDeclaringClass();
+			Class<?> candidateDeclaringClass = candidate.getDeclaringClass();
+			if (!candidateDeclaringClass.isAssignableFrom(sourceDeclaringClass)) {
+				return false;
+			}
 			for (int i = 0; i < types.length; i++) {
-				Class<?> resolved = ResolvableType.forMethodParameter(m2, i,
-						implementationClass).resolve();
+				Class<?> resolved = ResolvableType.forMethodParameter(candidate, i,
+						sourceDeclaringClass).resolve();
 				if (types[i] != resolved) {
 					return false;
 				}
