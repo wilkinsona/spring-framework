@@ -47,7 +47,7 @@ final class TypeMappedAnnotations extends AbstractMergedAnnotations {
 
 	private static FromElementResult lastFromElementResult = null;
 
-	private final List<MappableAnnotations> aggregates;
+	private final MappableAnnotations[] aggregates;
 
 	private volatile Set<MergedAnnotation<Annotation>> all;
 
@@ -55,11 +55,12 @@ final class TypeMappedAnnotations extends AbstractMergedAnnotations {
 			List<DeclaredAnnotations> aggregates,
 			RepeatableContainers repeatableContainers,
 			AnnotationFilter annotationFilter) {
-		this.aggregates = new ArrayList<>(aggregates.size());
+		this.aggregates = new MappableAnnotations[aggregates.size()];
 		int aggregateIndex = 0;
 		for (DeclaredAnnotations declaredAnnotations : aggregates) {
-			this.aggregates.add(new MappableAnnotations(classLoader, aggregateIndex,
-					declaredAnnotations, repeatableContainers, annotationFilter));
+			this.aggregates[aggregateIndex] = new MappableAnnotations(classLoader,
+					aggregateIndex, declaredAnnotations, repeatableContainers,
+					annotationFilter);
 			aggregateIndex++;
 		}
 	}

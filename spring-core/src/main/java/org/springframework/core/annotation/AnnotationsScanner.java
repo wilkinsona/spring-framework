@@ -139,15 +139,8 @@ class AnnotationsScanner {
 				case INHERITED_ANNOTATIONS:
 					return getInheritedAnnotations(source);
 				case SUPER_CLASS:
-					if (source.getSuperclass() == Object.class) {
-						return getDirect(source);
-					}
 					return getSuperclass(source);
 				case EXHAUSTIVE:
-					if (source.getSuperclass() == Object.class
-							&& source.getInterfaces().length == 0) {
-						return getDirect(source);
-					}
 					return getExhaustive(source);
 			}
 			throw new IllegalStateException(
@@ -192,12 +185,19 @@ class AnnotationsScanner {
 		}
 
 		private static List<DeclaredAnnotations> getSuperclass(Class<?> source) {
+			if (source.getSuperclass() == Object.class) {
+				return getDirect(source);
+			}
 			List<DeclaredAnnotations> aggregates = new ArrayList<>();
 			collect(aggregates, source, false);
 			return aggregates;
 		}
 
 		private static List<DeclaredAnnotations> getExhaustive(Class<?> source) {
+			if (source.getSuperclass() == Object.class
+					&& source.getInterfaces().length == 0) {
+				return getDirect(source);
+			}
 			List<DeclaredAnnotations> aggregates = new ArrayList<>();
 			collect(aggregates, source, true);
 			return aggregates;
@@ -279,7 +279,10 @@ class AnnotationsScanner {
 				boolean includeInterfaces) {
 			if (searchMethods) {
 				for (Method candidateMethod : getMethods(candidateClass)) {
-					if (isOverride(source, candidateClass, candidateMethod)) {
+					int modifiers = candidateMethod.getModifiers();
+					if ((modifiers & Modifier.PRIVATE) == 0
+							&& candidateMethod.getName().equals(source.getName())
+							&& hasSameParameterTypes(source, candidateMethod)) {
 						aggregates.add(getDeclaredAnnotations(candidateMethod));
 					}
 				}
@@ -309,18 +312,6 @@ class AnnotationsScanner {
 				methodsCache.put(type, result.length == 0 ? NO_METHODS : result);
 			}
 			return result;
-		}
-
-		private static boolean isOverride(Method method, Class<?> candidateClass,
-				Method candidateMethod) {
-			if (!candidateClass.isInterface()
-					&& Modifier.isPrivate(candidateMethod.getModifiers())) {
-				return false;
-			}
-			if (!candidateMethod.getName().equals(method.getName())) {
-				return false;
-			}
-			return hasSameParameterTypes(method, candidateMethod);
 		}
 
 		private static boolean hasSameParameterTypes(Method m1, Method m2) {

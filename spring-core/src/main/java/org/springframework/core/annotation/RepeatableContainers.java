@@ -121,14 +121,15 @@ public abstract class RepeatableContainers {
 
 	@Override
 	public boolean equals(Object obj) {
-		if (this == obj) {
+		if (obj == this) {
 			return true;
 		}
 		if (obj == null || getClass() != obj.getClass()) {
 			return false;
 		}
 		RepeatableContainers other = (RepeatableContainers) obj;
-		return ObjectUtils.nullSafeEquals(this.parent, other.parent);
+		return (this.parent == other.parent)
+				|| (this.parent != null && this.parent.equals(other.parent));
 	}
 
 	@Override
