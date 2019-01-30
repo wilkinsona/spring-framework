@@ -189,7 +189,7 @@ public class RepeatableContainersTests {
 		DeclaredAnnotation annotation = DeclaredAnnotation.from(
 				element.getDeclaredAnnotation(annotationClass));
 		MultiValueMap<String, Object> result = new LinkedMultiValueMap<>();
-		repeatableContainers.visit(annotation, getClass().getClassLoader(),
+		repeatableContainers.visit(annotation, getClass().getClassLoader(), AnnotationFilter.NONE,
 				(annotationType, attributes) -> {
 					result.add(annotationType.getClassName(), attributes.get("value"));
 				});

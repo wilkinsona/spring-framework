@@ -296,11 +296,9 @@ class AnnotationTypeMappings {
 				AnnotationTypeMapping parent, AnnotationType type) {
 			for (DeclaredAnnotation metaAnnotation : type.getDeclaredAnnotations()) {
 				try {
-					if(!isFiltered(type.getClassName())) {
-						this.repeatableContainers.visit(metaAnnotation, this.classLoader,
-								(annotation, attributes) -> addMapping(queue, parent,
-										annotation, attributes));
-					}
+					this.repeatableContainers.visit(metaAnnotation, this.classLoader, this.annotationFilter,
+							(annotation, attributes) -> addMapping(queue, parent,
+									annotation, attributes));
 				}
 				catch (UnresolvableAnnotationTypeException ex) {
 					// Ignore as meta-annotation

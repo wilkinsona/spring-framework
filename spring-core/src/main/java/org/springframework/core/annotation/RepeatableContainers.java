@@ -78,18 +78,21 @@ public abstract class RepeatableContainers {
 	 * @param consumer a consumer to be visited
 	 */
 	void visit(DeclaredAnnotation annotation, ClassLoader classLoader,
-			ContainedAnnotationConsumer consumer) {
-		AnnotationType annotationType = AnnotationType.resolve(annotation.getType(),
-				classLoader);
-		DeclaredAttributes attributes = annotation.getAttributes();
-		AnnotationType repeatableAnnotationType = findContainedRepeatable(annotationType,
-				attributes, classLoader);
-		if (repeatableAnnotationType == null) {
-			consumer.accept(annotationType, attributes);
-		}
-		else {
-			doWithRepeated(repeatableAnnotationType,
-					(DeclaredAttributes[]) attributes.get("value"), consumer);
+			AnnotationFilter annotationFilter, ContainedAnnotationConsumer consumer) {
+		if (!annotationFilter.matches(annotation.getType())) {
+			AnnotationType annotationType = AnnotationType.resolve(annotation.getType(),
+					classLoader);
+			DeclaredAttributes attributes = annotation.getAttributes();
+			AnnotationType repeatableAnnotationType = findContainedRepeatable(
+					annotationType, attributes, classLoader);
+			if (repeatableAnnotationType == null) {
+				consumer.accept(annotationType, attributes);
+				return;
+			}
+			if (!annotationFilter.matches(repeatableAnnotationType.getClassName())) {
+				doWithRepeated(repeatableAnnotationType,
+						(DeclaredAttributes[]) attributes.get("value"), consumer);
+			}
 		}
 	}
 
