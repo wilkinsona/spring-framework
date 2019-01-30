@@ -77,6 +77,7 @@ public abstract class RepeatableContainers {
 	 * @param classLoader the classloader used when resolving annotations
 	 * @param consumer a consumer to be visited
 	 */
+	@Deprecated
 	void visit(DeclaredAnnotation annotation, ClassLoader classLoader,
 			AnnotationFilter annotationFilter, ContainedAnnotationConsumer consumer) {
 		if (!annotationFilter.matches(annotation.getType())) {
@@ -97,9 +98,9 @@ public abstract class RepeatableContainers {
 	}
 
 	private void doWithRepeated(AnnotationType annotationType,
-			DeclaredAttributes[] repeateAttributes,
+			DeclaredAttributes[] repeatedAttributes,
 			ContainedAnnotationConsumer consumer) {
-		for (DeclaredAttributes attributes : repeateAttributes) {
+		for (DeclaredAttributes attributes : repeatedAttributes) {
 			consumer.accept(annotationType, attributes);
 		}
 	}
@@ -113,7 +114,7 @@ public abstract class RepeatableContainers {
 	 * @return the contained repeatable {@link AnnotationType} or {@code null}
 	 */
 	@Nullable
-	protected AnnotationType findContainedRepeatable(AnnotationType annotationType,
+	AnnotationType findContainedRepeatable(AnnotationType annotationType,
 			DeclaredAttributes attributes, ClassLoader classLoader) {
 		if (this.parent == null) {
 			return null;

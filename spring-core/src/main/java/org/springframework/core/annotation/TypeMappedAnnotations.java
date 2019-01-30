@@ -29,6 +29,7 @@ import java.util.List;
 import java.util.Set;
 import java.util.function.Predicate;
 
+import org.springframework.core.annotation.type.AnnotationType;
 import org.springframework.core.annotation.type.DeclaredAnnotation;
 import org.springframework.core.annotation.type.DeclaredAnnotations;
 import org.springframework.core.annotation.type.DeclaredAttributes;
@@ -216,14 +217,37 @@ final class TypeMappedAnnotations extends AbstractMergedAnnotations {
 		private void add(ClassLoader classLoader, Object source, int aggregateIndex,
 				DeclaredAnnotation annotation, RepeatableContainers repeatableContainers,
 				AnnotationFilter annotationFilter) {
-			repeatableContainers.visit(annotation, classLoader, annotationFilter, (type, attributes) -> {
-						AnnotationTypeMappings mappings = AnnotationTypeMappings.forType(
-						classLoader, repeatableContainers, annotationFilter, type);
+			if (annotationFilter.matches(annotation.getType())) {
+				return;
+			}
+			AnnotationType annotationType = AnnotationType.resolve(annotation.getType(),
+					classLoader);
+			DeclaredAttributes attributes = annotation.getAttributes();
+			AnnotationType repeatableType = repeatableContainers.findContainedRepeatable(
+					annotationType, attributes, classLoader);
+			if (repeatableType == null) {
+				AnnotationTypeMappings mappings = AnnotationTypeMappings.forType(
+						classLoader, repeatableContainers, annotationFilter,
+						annotationType);
 				if (mappings != null) {
-					this.mappableAnnotations.add(new MappableAnnotation(mappings, source,
-							aggregateIndex, attributes));
+					MappableAnnotation mappable = new MappableAnnotation(mappings, source,
+							aggregateIndex, attributes);
+					this.mappableAnnotations.add(mappable);
 				}
-			});
+			}
+			else {
+				for (DeclaredAttributes repeatedAttributes : (DeclaredAttributes[]) attributes.get(
+						"value")) {
+					AnnotationTypeMappings mappings = AnnotationTypeMappings.forType(
+							classLoader, repeatableContainers, annotationFilter,
+							repeatableType);
+					if (mappings != null) {
+						MappableAnnotation mappable = new MappableAnnotation(mappings,
+								source, aggregateIndex, repeatedAttributes);
+						this.mappableAnnotations.add(mappable);
+					}
+				}
+			}
 		}
 
 		public boolean isPresent(String annotationType) {

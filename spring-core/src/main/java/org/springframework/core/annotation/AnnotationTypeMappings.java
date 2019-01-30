@@ -30,6 +30,7 @@ import org.springframework.core.annotation.AnnotationTypeMapping.Reference;
 import org.springframework.core.annotation.type.AnnotationType;
 import org.springframework.core.annotation.type.AttributeType;
 import org.springframework.core.annotation.type.DeclaredAnnotation;
+import org.springframework.core.annotation.type.DeclaredAnnotations;
 import org.springframework.core.annotation.type.DeclaredAttributes;
 import org.springframework.core.annotation.type.UnresolvableAnnotationTypeException;
 import org.springframework.util.Assert;
@@ -294,14 +295,34 @@ class AnnotationTypeMappings {
 
 		private void addMappings(Deque<AnnotationTypeMapping> queue,
 				AnnotationTypeMapping parent, AnnotationType type) {
+			if (type.getDeclaredAnnotations() == DeclaredAnnotations.NONE) {
+				return;
+			}
 			for (DeclaredAnnotation metaAnnotation : type.getDeclaredAnnotations()) {
-				try {
-					this.repeatableContainers.visit(metaAnnotation, this.classLoader, this.annotationFilter,
-							(annotation, attributes) -> addMapping(queue, parent,
-									annotation, attributes));
+				if (!annotationFilter.matches(metaAnnotation.getType())) {
+					try {
+						addMetaAnnotationMappings(queue, parent, metaAnnotation);
+					}
+					catch (UnresolvableAnnotationTypeException ex) {
+						// Ignore as meta-annotation
+					}
 				}
-				catch (UnresolvableAnnotationTypeException ex) {
-					// Ignore as meta-annotation
+			}
+		}
+
+		private void addMetaAnnotationMappings(Deque<AnnotationTypeMapping> queue,
+				AnnotationTypeMapping parent, DeclaredAnnotation metaAnnotation) {
+			AnnotationType type = AnnotationType.resolve(metaAnnotation.getType(),
+					this.classLoader);
+			DeclaredAttributes attributes = metaAnnotation.getAttributes();
+			AnnotationType repeatableType = this.repeatableContainers.findContainedRepeatable(
+					type, attributes, classLoader);
+			if (repeatableType == null) {
+				addMapping(queue, parent, type, attributes);
+			}
+			else {
+				for (DeclaredAttributes repeatedAttributes : (DeclaredAttributes[]) attributes.get("value")) {
+					addMapping(queue, parent, repeatableType, repeatedAttributes);
 				}
 			}
 		}
