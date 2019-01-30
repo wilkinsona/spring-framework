@@ -45,8 +45,6 @@ import org.springframework.util.Assert;
  */
 final class TypeMappedAnnotations extends AbstractMergedAnnotations {
 
-	private static FromElementResult lastFromElementResult = null;
-
 	private final MappableAnnotations[] aggregates;
 
 	private volatile Set<MergedAnnotation<Annotation>> all;
@@ -147,18 +145,9 @@ final class TypeMappedAnnotations extends AbstractMergedAnnotations {
 		Assert.notNull(annotationFilter, "AnnotationFilter must not be null");
 		Assert.notNull(searchStrategy, "SearchStrategy must not be null");
 		Assert.notNull(element, "Element must not be null");
-		FromElementResult lastResult = lastFromElementResult;
-		if (lastResult != null && lastResult.matches(element, searchStrategy,
-				repeatableContainers, annotationFilter)) {
-			return lastResult.getMergedAnnotations();
-		}
 		List<DeclaredAnnotations> aggregates = AnnotationsScanner.scan(element,
 				searchStrategy);
-		MergedAnnotations mergedAnnotations = of(null, aggregates, repeatableContainers,
-				annotationFilter);
-		lastFromElementResult = new FromElementResult(element, searchStrategy,
-				repeatableContainers, annotationFilter, mergedAnnotations);
-		return mergedAnnotations;
+		return of(null, aggregates, repeatableContainers, annotationFilter);
 	}
 
 	static MergedAnnotations from(@Nullable AnnotatedElement source,
@@ -340,42 +329,6 @@ final class TypeMappedAnnotations extends AbstractMergedAnnotations {
 
 		public int size() {
 			return this.mappings.getAll().size();
-		}
-
-	}
-
-	private static class FromElementResult {
-
-		private final AnnotatedElement element;
-
-		private final SearchStrategy searchStrategy;
-
-		private final RepeatableContainers repeatableContainers;
-
-		private final AnnotationFilter annotationFilter;
-
-		private final MergedAnnotations mergedAnnotations;
-
-		FromElementResult(AnnotatedElement element, SearchStrategy searchStrategy,
-				RepeatableContainers repeatableContainers,
-				AnnotationFilter annotationFilter, MergedAnnotations mergedAnnotations) {
-			this.element = element;
-			this.searchStrategy = searchStrategy;
-			this.repeatableContainers = repeatableContainers;
-			this.annotationFilter = annotationFilter;
-			this.mergedAnnotations = mergedAnnotations;
-		}
-
-		public boolean matches(AnnotatedElement element, SearchStrategy searchStrategy,
-				RepeatableContainers repeatableContainers,
-				AnnotationFilter annotationFilter) {
-			return this.element == element && this.searchStrategy == searchStrategy
-					&& this.repeatableContainers == repeatableContainers
-					&& this.annotationFilter == annotationFilter;
-		}
-
-		public MergedAnnotations getMergedAnnotations() {
-			return this.mergedAnnotations;
 		}
 
 	}
