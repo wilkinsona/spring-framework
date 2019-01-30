@@ -42,6 +42,9 @@ import org.springframework.context.ConfigurableApplicationContext;
 import org.springframework.core.MethodIntrospector;
 import org.springframework.core.annotation.AnnotatedElementUtils;
 import org.springframework.core.annotation.AnnotationAwareOrderComparator;
+import org.springframework.core.annotation.MergedAnnotation;
+import org.springframework.core.annotation.MergedAnnotations;
+import org.springframework.core.annotation.MergedAnnotations.SearchStrategy;
 import org.springframework.lang.Nullable;
 import org.springframework.stereotype.Component;
 import org.springframework.util.Assert;
@@ -143,11 +146,15 @@ public class EventListenerMethodProcessor
 
 	private void processBean(final String beanName, final Class<?> targetType) {
 		if (!this.nonAnnotatedClasses.contains(targetType) && !isSkippable(targetType)) {
-			Map<Method, EventListener> annotatedMethods = null;
+			Map<Method, MergedAnnotation<EventListener>> annotatedMethods = null;
 			try {
 				annotatedMethods = MethodIntrospector.selectMethods(targetType,
-						(MethodIntrospector.MetadataLookup<EventListener>) method ->
-								AnnotatedElementUtils.findMergedAnnotation(method, EventListener.class));
+						(MethodIntrospector.MetadataLookup<MergedAnnotation<EventListener>>) method -> {
+							MergedAnnotation<EventListener> annotation = MergedAnnotations.from(
+									method, SearchStrategy.EXHAUSTIVE).get(
+											EventListener.class);
+							return annotation.isPresent() ? annotation : null;
+						});
 			}
 			catch (Throwable ex) {
 				// An unresolvable type in a method signature, probably from a lazy bean - let's ignore it.
@@ -208,7 +215,7 @@ public class EventListenerMethodProcessor
 	 */
 	private static boolean isSpringContainerClass(Class<?> clazz) {
 		return (clazz.getName().startsWith("org.springframework.") &&
-				!AnnotatedElementUtils.isAnnotated(ClassUtils.getUserClass(clazz), Component.class));
+				!MergedAnnotations.from(ClassUtils.getUserClass(clazz)).isPresent(Component.class));
 	}
 
 }
