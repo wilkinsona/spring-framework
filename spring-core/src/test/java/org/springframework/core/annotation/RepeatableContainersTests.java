@@ -192,7 +192,6 @@ public class RepeatableContainersTests {
 		repeatableContainers.visit(annotation, getClass().getClassLoader(), AnnotationFilter.NONE,
 				(annotationType, attributes) -> {
 					result.add(annotationType.getClassName(), attributes.get("value"));
-					return null;
 				});
 		return result;
 	}
