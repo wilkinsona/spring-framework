@@ -722,8 +722,9 @@ public abstract class AbstractAutowireCapableBeanFactory extends AbstractBeanFac
 				factoryClass, ReflectionUtils::getUniqueDeclaredMethods);
 
 		for (Method candidate : candidates) {
-			if (Modifier.isStatic(candidate.getModifiers()) == isStatic && mbd.isFactoryMethod(candidate) &&
-					candidate.getParameterCount() >= minNrOfArgs) {
+			if (Modifier.isStatic(candidate.getModifiers()) == isStatic
+					&& candidate.getParameterCount() >= minNrOfArgs
+					&& mbd.isFactoryMethod(candidate)) {
 				// Declared type variables to inspect?
 				if (candidate.getTypeParameters().length > 0) {
 					try {
