@@ -35,13 +35,16 @@ import org.springframework.util.Assert;
 class SimpleDeclaredAttributes extends AbstractDeclaredAttributes {
 
 	static final SimpleDeclaredAttributes NONE = new SimpleDeclaredAttributes(
-			Collections.emptyMap());
+			null);
 
 	private final Map<String, Object> attributes;
 
-	SimpleDeclaredAttributes(Map<String, ?> attributes) {
-		this.attributes = Collections.unmodifiableMap(attributes);
-		validate();
+	SimpleDeclaredAttributes(@Nullable Map<String, ?> attributes) {
+		this.attributes = attributes != null ? Collections.unmodifiableMap(attributes)
+				: Collections.emptyMap();
+		if (this.attributes.isEmpty()) {
+			validate();
+		}
 	}
 
 	@Override
