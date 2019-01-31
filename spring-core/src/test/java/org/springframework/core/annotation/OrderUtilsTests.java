@@ -30,20 +30,20 @@ public class OrderUtilsTests {
 
 	@Test
 	public void getSimpleOrder() {
-		assertEquals(Integer.valueOf(50), OrderUtils.getOrder(SimpleOrder.class, null));
-		assertEquals(Integer.valueOf(50), OrderUtils.getOrder(SimpleOrder.class, null));
+		assertEquals(Integer.valueOf(50), OrderUtils.getOrder(SimpleOrder.class, (Integer)null));
+		assertEquals(Integer.valueOf(50), OrderUtils.getOrder(SimpleOrder.class, (Integer)null));
 	}
 
 	@Test
 	public void getPriorityOrder() {
-		assertEquals(Integer.valueOf(55), OrderUtils.getOrder(SimplePriority.class, null));
-		assertEquals(Integer.valueOf(55), OrderUtils.getOrder(SimplePriority.class, null));
+		assertEquals(Integer.valueOf(55), OrderUtils.getOrder(SimplePriority.class, (Integer)null));
+		assertEquals(Integer.valueOf(55), OrderUtils.getOrder(SimplePriority.class, (Integer)null));
 	}
 
 	@Test
 	public void getOrderWithBoth() {
-		assertEquals(Integer.valueOf(50), OrderUtils.getOrder(OrderAndPriority.class, null));
-		assertEquals(Integer.valueOf(50), OrderUtils.getOrder(OrderAndPriority.class, null));
+		assertEquals(Integer.valueOf(50), OrderUtils.getOrder(OrderAndPriority.class, (Integer)null));
+		assertEquals(Integer.valueOf(50), OrderUtils.getOrder(OrderAndPriority.class, (Integer)null));
 	}
 
 	@Test
