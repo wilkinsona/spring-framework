@@ -39,7 +39,7 @@ public class StandardDeclaredAttributes extends AbstractDeclaredAttributes {
 
 	private volatile Method[] attributeMethods;
 
-	private final Names names = new Names();
+	private volatile Names names;
 
 	StandardDeclaredAttributes(Annotation annotation) {
 		Assert.notNull(annotation, "Annotation must not be null");
@@ -56,7 +56,13 @@ public class StandardDeclaredAttributes extends AbstractDeclaredAttributes {
 
 	@Override
 	public Set<String> names() {
-		return this.names;
+		Names names = this.names;
+		if (names != null) {
+			return names;
+		}
+		names = new Names();
+		this.names = names;
+		return names;
 	}
 
 	@Override
