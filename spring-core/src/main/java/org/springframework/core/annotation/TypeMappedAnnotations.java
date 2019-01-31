@@ -183,9 +183,11 @@ final class TypeMappedAnnotations extends AbstractMergedAnnotations {
 	}
 
 	private static boolean hasNoAnnotations(List<DeclaredAnnotations> aggregates) {
-		for (DeclaredAnnotations annotations : aggregates) {
-			if (annotations != DeclaredAnnotations.NONE) {
-				return false;
+		if (!aggregates.isEmpty()) {
+			for (DeclaredAnnotations annotations : aggregates) {
+				if (annotations != DeclaredAnnotations.NONE) {
+					return false;
+				}
 			}
 		}
 		return true;
@@ -202,15 +204,19 @@ final class TypeMappedAnnotations extends AbstractMergedAnnotations {
 				DeclaredAnnotations annotations,
 				RepeatableContainers repeatableContainers,
 				AnnotationFilter annotationFilter) {
-			this.mappableAnnotations = new ArrayList<>(annotations.size());
-			for (DeclaredAnnotation annotation : annotations) {
-				ClassLoader annotationClassLoader = classLoader;
-				if (classLoader == null
-						&& annotation instanceof StandardDeclaredAnnotation) {
-					annotationClassLoader = ((StandardDeclaredAnnotation) annotation).getAnnotation().getClass().getClassLoader();
+			if (annotations == DeclaredAnnotations.NONE) {
+				this.mappableAnnotations = Collections.emptyList();
+			} else {
+				this.mappableAnnotations = new ArrayList<>(annotations.size());
+				for (DeclaredAnnotation annotation : annotations) {
+					ClassLoader annotationClassLoader = classLoader;
+					if (classLoader == null
+							&& annotation instanceof StandardDeclaredAnnotation) {
+						annotationClassLoader = ((StandardDeclaredAnnotation) annotation).getAnnotation().getClass().getClassLoader();
+					}
+					add(annotationClassLoader, annotations.getSource(), aggregateIndex,
+							annotation, repeatableContainers, annotationFilter);
 				}
-				add(annotationClassLoader, annotations.getSource(), aggregateIndex,
-						annotation, repeatableContainers, annotationFilter);
 			}
 		}
 
@@ -251,7 +257,10 @@ final class TypeMappedAnnotations extends AbstractMergedAnnotations {
 		}
 
 		public boolean isPresent(String annotationType) {
-			for (MappableAnnotation mappableAnnotation : this.mappableAnnotations) {
+			if (this.mappableAnnotations.isEmpty()) {
+				return false;
+			}
+ 			for (MappableAnnotation mappableAnnotation : this.mappableAnnotations) {
 				if (mappableAnnotation.isPresent(annotationType)) {
 					return true;
 				}
@@ -281,6 +290,9 @@ final class TypeMappedAnnotations extends AbstractMergedAnnotations {
 		}
 
 		public int totalSize() {
+			if (this.mappableAnnotations.isEmpty()) {
+				return 0;
+			}
 			int size = 0;
 			for (MappableAnnotation mappableAnnotation : this.mappableAnnotations) {
 				size += mappableAnnotation.size();
@@ -339,8 +351,11 @@ final class TypeMappedAnnotations extends AbstractMergedAnnotations {
 
 		public Deque<MergedAnnotation<Annotation>> getQueue() {
 			Deque<MergedAnnotation<Annotation>> queue = new ArrayDeque<>(size());
-			for (AnnotationTypeMapping mapping : this.mappings.getAll()) {
-				queue.add(map(mapping));
+			List<AnnotationTypeMapping> all = this.mappings.getAll();
+			if (!all.isEmpty()) {
+				for (AnnotationTypeMapping mapping : all) {
+					queue.add(map(mapping));
+				}
 			}
 			return queue;
 		}

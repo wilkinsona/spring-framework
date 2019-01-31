@@ -162,9 +162,11 @@ class AnnotationsScanner {
 			while (source != null && source != Object.class) {
 				DeclaredAnnotations declaredAnnotations = getDeclaredAnnotations(source);
 				Set<DeclaredAnnotation> relevant = new LinkedHashSet<>(types.size());
-				for (DeclaredAnnotation candidate : declaredAnnotations) {
-					if (types.remove(candidate.getType())) {
-						relevant.add(candidate);
+				if (declaredAnnotations != DeclaredAnnotations.NONE) {
+					for (DeclaredAnnotation candidate : declaredAnnotations) {
+						if (types.remove(candidate.getType())) {
+							relevant.add(candidate);
+						}
 					}
 				}
 				if (relevant.size() != declaredAnnotations.size()) {

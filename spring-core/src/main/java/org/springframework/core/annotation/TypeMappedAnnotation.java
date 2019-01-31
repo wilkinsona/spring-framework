@@ -397,6 +397,9 @@ class TypeMappedAnnotation<A extends Annotation> extends AbstractMergedAnnotatio
 		}
 
 		private Map<String, Reference> getMirrors(List<MirrorSet> mirrorSets) {
+			if (mirrorSets.isEmpty()) {
+				return Collections.emptyMap();
+			}
 			Map<String, Reference> mirrors = new HashMap<>();
 			for (MirrorSet mirrorSet : mirrorSets) {
 				addMirrors(mirrors, mirrorSet);

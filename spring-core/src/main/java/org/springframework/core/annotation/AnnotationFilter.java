@@ -89,6 +89,18 @@ public interface AnnotationFilter {
 
 	/**
 	 * Return an {@link AnnotationFilter} that is the most appropriate for, and
+	 * will always match all the given annotation type. Whenever possible,
+	 * {@link AnnotationFilter#PLAIN} will be returned.
+	 * @param annotationTypes the annotation types to check
+	 * @return the most appropriate annotation filter
+	 */
+	static AnnotationFilter mostAppropriateFor(
+			@Nullable Class<?> annotationType) {
+		return PLAIN.matches(annotationType) ? NONE : PLAIN;
+	}
+
+	/**
+	 * Return an {@link AnnotationFilter} that is the most appropriate for, and
 	 * will always match all the given annotation types. Whenever possible,
 	 * {@link AnnotationFilter#PLAIN} will be returned.
 	 * @param annotationTypes the annotation types to check
@@ -98,6 +110,17 @@ public interface AnnotationFilter {
 			Class<?>... annotationTypes) {
 		Assert.notNull(annotationTypes, "AnnotationTypes must not be null");
 		return mostAppropriateFor(Arrays.asList(annotationTypes));
+	}
+
+	/**
+	 * Return an {@link AnnotationFilter} that is the most appropriate for, and
+	 * will always match all the given annotation type. Whenever possible,
+	 * {@link AnnotationFilter#PLAIN} will be returned.
+	 * @param annotationTypes the annotation types to check
+	 * @return the most appropriate annotation filter
+	 */
+	static AnnotationFilter mostAppropriateFor(@Nullable String annotationType) {
+		return PLAIN.matches(annotationType) ? NONE : PLAIN;
 	}
 
 	/**
@@ -136,10 +159,10 @@ public interface AnnotationFilter {
 			}
 			if (annotationType instanceof String
 					&& PLAIN.matches((String) annotationType)) {
-				return AnnotationFilter.NONE;
+				return NONE;
 			}
 		}
-		return AnnotationFilter.PLAIN;
+		return PLAIN;
 	}
 
 }
