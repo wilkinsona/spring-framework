@@ -24,6 +24,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.function.Function;
 
 import org.springframework.core.annotation.AnnotationTypeMapping.MirrorSet;
 import org.springframework.core.annotation.AnnotationTypeMapping.Reference;
@@ -372,16 +373,19 @@ class AnnotationTypeMappings {
 
 		private final Map<Key, AnnotationTypeMappings> mappings = new ConcurrentReferenceHashMap<>();
 
+		private final Function<Key, AnnotationTypeMappings> annotationMappingsForKey;
+
 		Cache(ClassLoader classLoader) {
 			this.classLoader = classLoader;
+			this.annotationMappingsForKey = key -> new AnnotationTypeMappings(this.classLoader, key.repeatableContainers,
+					key.annotationFilter, key.annotationType);
 		}
 
 		public AnnotationTypeMappings get(RepeatableContainers repeatableContainers,
 				AnnotationFilter annotationFilter, AnnotationType type) {
 			return this.mappings.computeIfAbsent(
 					new Key(repeatableContainers, annotationFilter, type),
-					key -> new AnnotationTypeMappings(this.classLoader,
-							repeatableContainers, annotationFilter, type));
+					this.annotationMappingsForKey);
 		}
 
 		/**
@@ -393,12 +397,15 @@ class AnnotationTypeMappings {
 
 			private final AnnotationFilter annotationFilter;
 
+			private final AnnotationType annotationType;
+
 			private final String type;
 
 			Key(RepeatableContainers repeatableContainers,
 					AnnotationFilter annotationFilter, AnnotationType type) {
 				this.repeatableContainers = repeatableContainers;
 				this.annotationFilter = annotationFilter;
+				this.annotationType = type;
 				this.type = type.getClassName();
 			}
 
