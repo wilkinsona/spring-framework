@@ -272,6 +272,9 @@ final class TypeMappedAnnotations extends AbstractMergedAnnotations {
 		public <A extends Annotation> MergedAnnotation<A> get(String annotationType,
 				@Nullable Predicate<? super MergedAnnotation<A>> predicate,
 				MergedAnnotationSelector<A> selector) {
+			if (this.mappableAnnotations.isEmpty()) {
+				return null;
+			}
 			MergedAnnotation<A> result = null;
 			for (MappableAnnotation mappableAnnotation : this.mappableAnnotations) {
 				MergedAnnotation<A> candidate = mappableAnnotation.get(annotationType,

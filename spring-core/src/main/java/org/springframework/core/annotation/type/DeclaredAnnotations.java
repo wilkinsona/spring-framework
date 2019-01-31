@@ -71,9 +71,11 @@ public interface DeclaredAnnotations extends Iterable<DeclaredAnnotation> {
 	 */
 	@Nullable
 	default DeclaredAnnotation find(String annotationType) {
-		for (DeclaredAnnotation candidate : this) {
-			if (candidate.getType().equals(annotationType)) {
-				return candidate;
+		if (size() > 0) {
+			for (DeclaredAnnotation candidate : this) {
+				if (candidate.getType().equals(annotationType)) {
+					return candidate;
+				}
 			}
 		}
 		return null;

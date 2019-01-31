@@ -811,17 +811,20 @@ public abstract class AnnotationUtils {
 					annotationClass.getClassLoader(), RepeatableContainers.none(),
 					AnnotationFilter.mostAppropriateFor(annotationClass),
 					annotationType).get(annotationType.getClassName());
-			for (MirrorSet mirrorSet : mapping.getMirrorSets()) {
-				String targetName = getMirrorAttributeInUse(annotatedElement, attributes, mirrorSet);
-				if (targetName != null) {
-					Object targetValue = attributes.get(targetName);
-					for (Reference reference : mirrorSet) {
-						String name = reference.getAttribute().getAttributeName();
-						Object value = attributes.get(name);
-						if (!name.equals(targetName)) {
-							value = targetValue;
+			List<MirrorSet> mirrorSets = mapping.getMirrorSets();
+			if (!mirrorSets.isEmpty()) {
+				for (MirrorSet mirrorSet : mirrorSets) {
+					String targetName = getMirrorAttributeInUse(annotatedElement, attributes, mirrorSet);
+					if (targetName != null) {
+						Object targetValue = attributes.get(targetName);
+						for (Reference reference : mirrorSet) {
+							String name = reference.getAttribute().getAttributeName();
+							Object value = attributes.get(name);
+							if (!name.equals(targetName)) {
+								value = targetValue;
+							}
+							attributes.put(name, adaptValue(annotatedElement, value, classValuesAsString));
 						}
-						attributes.put(name, adaptValue(annotatedElement, value, classValuesAsString));
 					}
 				}
 			}
