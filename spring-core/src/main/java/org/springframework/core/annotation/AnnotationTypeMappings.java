@@ -299,7 +299,7 @@ class AnnotationTypeMappings {
 				return;
 			}
 			for (DeclaredAnnotation metaAnnotation : type.getDeclaredAnnotations()) {
-				if (!annotationFilter.matches(metaAnnotation.getType())) {
+				if (!this.annotationFilter.matches(metaAnnotation.getType())) {
 					try {
 						addMetaAnnotationMappings(queue, parent, metaAnnotation);
 					}
@@ -316,7 +316,7 @@ class AnnotationTypeMappings {
 					this.classLoader);
 			DeclaredAttributes attributes = metaAnnotation.getAttributes();
 			AnnotationType repeatableType = this.repeatableContainers.findContainedRepeatable(
-					type, attributes, classLoader);
+					type, attributes, this.classLoader);
 			if (repeatableType == null) {
 				addMapping(queue, parent, type, attributes);
 			}

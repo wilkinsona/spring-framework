@@ -62,5 +62,5 @@ class StandardAnnotationType implements AnnotationType {
 	public String toString() {
 		return AnnotationString.get(this);
 	}
-	
+
 }

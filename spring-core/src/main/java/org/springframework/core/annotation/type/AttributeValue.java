@@ -28,7 +28,7 @@ import java.util.Set;
  * @author Phillip Webb
  * @since 5.2
  */
-class AttributeValue {
+final class AttributeValue {
 
 	public static final Set<Class<?>> SUPPORTED_TYPES;
 	static {
@@ -59,6 +59,8 @@ class AttributeValue {
 		supportedTypes.add(DeclaredAttributes[].class);
 		SUPPORTED_TYPES = Collections.unmodifiableSet(supportedTypes);
 	}
+
+	private AttributeValue() {}
 
 	public static boolean isSupportedType(Class<?> type) {
 		if (Object[].class.equals(type)) {

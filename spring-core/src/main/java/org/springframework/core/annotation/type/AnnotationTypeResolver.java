@@ -82,7 +82,7 @@ final class AnnotationTypeResolver {
 	private Class<? extends Annotation> forName(String className) {
 		try {
 			return (Class<? extends Annotation>) Class.forName(className, false,
-					classLoader);
+					this.classLoader);
 		}
 		catch (Exception ex) {
 			throw new UnresolvableAnnotationTypeException(className, ex);

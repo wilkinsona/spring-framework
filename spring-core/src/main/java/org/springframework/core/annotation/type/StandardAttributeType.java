@@ -56,7 +56,7 @@ class StandardAttributeType implements AttributeType {
 
 	@Override
 	public DeclaredAnnotations getDeclaredAnnotations() {
-		return DeclaredAnnotations.from(this.method, method.getDeclaredAnnotations());
+		return DeclaredAnnotations.from(this.method, this.method.getDeclaredAnnotations());
 	}
 
 	@Override

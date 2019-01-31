@@ -89,9 +89,9 @@ public interface AnnotationFilter {
 
 	/**
 	 * Return an {@link AnnotationFilter} that is the most appropriate for, and
-	 * will always match all the given annotation type. Whenever possible,
+	 * will always match, the given annotation type. Whenever possible,
 	 * {@link AnnotationFilter#PLAIN} will be returned.
-	 * @param annotationTypes the annotation types to check
+	 * @param annotationType the annotation type to check
 	 * @return the most appropriate annotation filter
 	 */
 	static AnnotationFilter mostAppropriateFor(
@@ -101,7 +101,7 @@ public interface AnnotationFilter {
 
 	/**
 	 * Return an {@link AnnotationFilter} that is the most appropriate for, and
-	 * will always match all the given annotation types. Whenever possible,
+	 * will always match, all the given annotation types. Whenever possible,
 	 * {@link AnnotationFilter#PLAIN} will be returned.
 	 * @param annotationTypes the annotation types to check
 	 * @return the most appropriate annotation filter
@@ -114,9 +114,9 @@ public interface AnnotationFilter {
 
 	/**
 	 * Return an {@link AnnotationFilter} that is the most appropriate for, and
-	 * will always match all the given annotation type. Whenever possible,
+	 * will always match, the given annotation type. Whenever possible,
 	 * {@link AnnotationFilter#PLAIN} will be returned.
-	 * @param annotationTypes the annotation types to check
+	 * @param annotationType the annotation type to check
 	 * @return the most appropriate annotation filter
 	 */
 	static AnnotationFilter mostAppropriateFor(@Nullable String annotationType) {
@@ -125,7 +125,7 @@ public interface AnnotationFilter {
 
 	/**
 	 * Return an {@link AnnotationFilter} that is the most appropriate for, and
-	 * will always match all the given annotation types. Whenever possible,
+	 * will always match, all the given annotation types. Whenever possible,
 	 * {@link AnnotationFilter#PLAIN} will be returned.
 	 * @param annotationTypes the annotation types to check
 	 * @return the most appropriate annotation filter
@@ -137,7 +137,7 @@ public interface AnnotationFilter {
 
 	/**
 	 * Return an {@link AnnotationFilter} that is the most appropriate for, and
-	 * will always match all the given annotation types. Whenever possible,
+	 * will always match, all the given annotation types. Whenever possible,
 	 * {@link AnnotationFilter#PLAIN} will be returned.
 	 * @param annotationTypes the annotation types to check (may be class names
 	 * or class types)

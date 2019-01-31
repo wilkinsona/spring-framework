@@ -74,7 +74,7 @@ public class StandardDeclaredAttributes extends AbstractDeclaredAttributes {
 		if (result != null) {
 			return result;
 		}
-		result = annotation.annotationType().getDeclaredMethods();
+		result = this.annotation.annotationType().getDeclaredMethods();
 		for (int i = 0; i < result.length; i++) {
 			if (isAttributeMethod(result[i])) {
 				result[i].setAccessible(true);

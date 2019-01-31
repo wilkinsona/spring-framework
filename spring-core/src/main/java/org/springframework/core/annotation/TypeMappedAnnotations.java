@@ -206,7 +206,8 @@ final class TypeMappedAnnotations extends AbstractMergedAnnotations {
 				AnnotationFilter annotationFilter) {
 			if (annotations == DeclaredAnnotations.NONE) {
 				this.mappableAnnotations = Collections.emptyList();
-			} else {
+			}
+			else {
 				this.mappableAnnotations = new ArrayList<>(annotations.size());
 				for (DeclaredAnnotation annotation : annotations) {
 					ClassLoader annotationClassLoader = classLoader;
@@ -260,7 +261,7 @@ final class TypeMappedAnnotations extends AbstractMergedAnnotations {
 			if (this.mappableAnnotations.isEmpty()) {
 				return false;
 			}
- 			for (MappableAnnotation mappableAnnotation : this.mappableAnnotations) {
+			for (MappableAnnotation mappableAnnotation : this.mappableAnnotations) {
 				if (mappableAnnotation.isPresent(annotationType)) {
 					return true;
 				}

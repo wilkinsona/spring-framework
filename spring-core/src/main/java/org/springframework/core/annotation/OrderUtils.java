@@ -85,9 +85,10 @@ public abstract class OrderUtils {
 	}
 
 	/**
-	 * Return the order from the specified annotations.
+	 * Return the order from the specified annotations found on the given element.
 	 * <p>Takes care of {@link Order @Order} and {@code @javax.annotation.Priority}.
-	 * @param type the source annotations
+	 * @param element the annotated element
+	 * @param annotations the source annotations
 	 * @return the order value, or {@code null} if none can be found
 	 */
 	static Integer getOrder(AnnotatedElement element, MergedAnnotations annotations) {
