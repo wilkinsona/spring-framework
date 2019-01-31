@@ -19,6 +19,7 @@ package org.springframework.core.annotation.type;
 import java.lang.annotation.Annotation;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.function.Function;
 
 import org.springframework.lang.Nullable;
 import org.springframework.util.ClassUtils;
@@ -39,18 +40,20 @@ final class AnnotationTypeResolver {
 
 	private final Map<String, Object> cache = new ConcurrentHashMap<>();
 
+	private final Function<String, Object> annotationTypeFromClassName = this::computeAnnotationType;
+
 	public AnnotationTypeResolver(ClassLoader classLoader) {
 		this.classLoader = classLoader;
 	}
 
 	private AnnotationType doResolve(String className) {
 		return extractResult(
-				this.cache.computeIfAbsent(className, this::computeAnnotationType));
+				this.cache.computeIfAbsent(className, this.annotationTypeFromClassName));
 	}
 
 	private AnnotationType doResolve(Class<? extends Annotation> annotationClass) {
 		return extractResult(this.cache.computeIfAbsent(annotationClass.getName(),
-				this::computeAnnotationType));
+				this.annotationTypeFromClassName));
 	}
 
 	private Object computeAnnotationType(String className) {
