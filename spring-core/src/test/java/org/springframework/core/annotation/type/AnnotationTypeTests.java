@@ -39,10 +39,10 @@ public class AnnotationTypeTests {
 	}
 
 	@Test
-	public void resolveReturnsSimpleAnnotationType() {
+	public void resolveReturnsStandardAnnotationType() {
 		AnnotationType annotationType = AnnotationType.resolve(
 				TestAnnotation.class.getName(), null);
-		assertThat(annotationType).isInstanceOf(SimpleAnnotationType.class);
+		assertThat(annotationType).isInstanceOf(StandardAnnotationType.class);
 		assertThat(annotationType.getClassName()).isEqualTo(
 				TestAnnotation.class.getName());
 	}
